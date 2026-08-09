@@ -1,0 +1,145 @@
+@import 'tailwindcss';
+
+:root {
+  --fundo: #f6f7f9;
+  --painel: #ffffff;
+  --borda: #e8eaee;
+  --borda-forte: #d3d7de;
+  --texto: #14161a;
+  --suave: #6b7280;
+  --suave-claro: #9ca3af;
+
+  /*
+   * Vermelho é reservado para o que é de fato ruim: prejuízo, saldo negativo,
+   * atraso, erro. GASTO NÃO É RUIM — é um fato do mês. Pintar "gastei R$ 416"
+   * de vermelho faz um número normal parecer alarme, e quando tudo é alarme
+   * nada é.
+   *
+   * Saída de dinheiro usa --gasto (cinza escuro, quase o texto normal); o
+   * sinal "−" já carrega o significado. Entrada continua verde porque dinheiro
+   * entrando é inequivocamente bom e ajuda a varrer a lista.
+   */
+  --negativo: #e11d48;
+  --gasto: #3f4450;
+  --gasto-clara: #d8dbe2;
+  --entrada: #059669;
+  --acento: #4f46e5;
+  --acento-fraco: #eef2ff;
+
+  --aviso-borda: #f2ddb0;
+  --aviso-fundo: #fdf8ec;
+  --aviso-texto: #8a6318;
+
+  --perigo-borda: #f4cbcb;
+  --perigo-fundo: #fdf3f3;
+  --perigo-texto: #a32020;
+
+  --sombra: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
+  --sombra-alta: 0 4px 12px rgb(16 24 40 / 0.08);
+}
+
+html, body {
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+.painel {
+  background: var(--painel);
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  box-shadow: var(--sombra);
+}
+
+.painel-destaque {
+  background: linear-gradient(180deg, #ffffff 0%, #fcfcfd 100%);
+  border: 1px solid var(--borda);
+  border-radius: 14px;
+  box-shadow: var(--sombra-alta);
+}
+
+.rotulo {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--suave-claro);
+}
+
+.btn {
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  transition: filter 0.15s, background 0.15s;
+}
+.btn:hover:not(:disabled) { filter: brightness(0.95); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-principal { background: var(--acento); color: #fff; }
+.btn-neutro {
+  background: var(--painel);
+  border: 1px solid var(--borda-forte);
+  color: var(--texto);
+}
+
+select, input[type='text'], input:not([type]) {
+  border-radius: 8px;
+}
+
+/* Foco visível.
+   O contorno padrão do navegador some sob os estilos customizados, e sem ele
+   quem navega por teclado não sabe onde está. */
+:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Conteúdo só para leitor de tela: existe na árvore de acessibilidade,
+   invisível na tela. */
+.apenas-leitor {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+tbody tr:hover { background: #fafbfc; }
+
+/* ── Impressão / exportar PDF ──────────────────────────────────────────────
+   O navegador já gera PDF melhor que qualquer biblioteca de canvas: os
+   gráficos são SVG e saem vetoriais, o texto continua selecionável, e não
+   entra dependência nenhuma no bundle. O botão só chama window.print(). */
+@media print {
+  @page { margin: 14mm; size: A4 portrait; }
+
+  html, body { background: #fff; }
+
+  /* Nada de navegação, filtros ou botões no papel. */
+  .nao-imprimir { display: none !important; }
+
+  .painel, .painel-destaque {
+    box-shadow: none;
+    border: 1px solid #d0d4da;
+    break-inside: avoid;
+  }
+
+  section { break-inside: avoid; }
+
+  h1 { font-size: 20pt; }
+  h2 { font-size: 11pt; }
+
+  /* Recharts desenha em SVG com largura calculada em JS; sem isto o gráfico
+     sai cortado na largura da tela em vez da largura da página. */
+  .recharts-wrapper, .recharts-surface { max-width: 100% !important; }
+
+  a[href]::after { content: ''; } /* não imprimir a URL depois dos links */
+}

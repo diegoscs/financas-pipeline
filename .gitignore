@@ -1,0 +1,26 @@
+# Dados financeiros reais — nunca commitar
+samples/
+*.ofx
+*.xlsx
+*.xls
+
+# Segredos
+.env
+.env*.local
+*.p12
+
+# Node / Next
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Python (legado)
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+.DS_Store
+*.log

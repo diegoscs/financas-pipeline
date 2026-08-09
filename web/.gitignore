@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+build/
+next-env.d.ts
+*.tsbuildinfo
+
+# Contém a chave publicável do Supabase. Enquanto não houver auth, ela dá
+# acesso total à base — não versionar.
+.env.local
+.env*.local
+
+# posição do polling do bot; local, não versionar
+.bot-offset
+
+.DS_Store
+*.log
