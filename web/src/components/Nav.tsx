@@ -1,14 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import { useUsuario } from '@/lib/useUsuario';
 
-/**
- * Menu com o item atual marcado.
- *
- * Sem isso as quatro telas eram indistinguíveis pelo cabeçalho, e depois de
- * navegar por duas ou três não dava para saber onde se estava.
- */
 const ITENS = [
   { href: '/', rotulo: 'Importar' },
   { href: '/analise', rotulo: 'Quanto gastei' },
@@ -17,6 +13,14 @@ const ITENS = [
 
 export function Nav() {
   const caminho = usePathname();
+  const router = useRouter();
+  const { usuario } = useUsuario();
+
+  async function fazerLogout() {
+    await supabase.auth.signOut();
+    router.push('/login');
+  }
+
   return (
     <nav className="mx-auto flex max-w-5xl items-center gap-1 px-6 py-3">
       <span className="mr-4 font-semibold">Finanças</span>
@@ -35,14 +39,28 @@ export function Nav() {
           </Link>
         );
       })}
-      <Link href="/onboarding"
-            className="ml-auto rounded-lg px-3 py-1.5 text-sm transition"
-            style={{
-              background: caminho.startsWith('/onboarding') ? 'var(--acento-fraco)' : 'transparent',
-              color: caminho.startsWith('/onboarding') ? 'var(--acento)' : 'var(--suave)',
-            }}>
-        Configurar
-      </Link>
+      <div className="ml-auto flex items-center gap-3">
+        <Link href="/onboarding"
+              className="rounded-lg px-3 py-1.5 text-sm transition"
+              style={{
+                background: caminho.startsWith('/onboarding') ? 'var(--acento-fraco)' : 'transparent',
+                color: caminho.startsWith('/onboarding') ? 'var(--acento)' : 'var(--suave)',
+              }}>
+          Configurar
+        </Link>
+        {usuario && (
+          <div className="flex items-center gap-2 border-l pl-3" style={{ borderColor: 'var(--borda)' }}>
+            <span className="text-xs" style={{ color: 'var(--suave)' }}>
+              {usuario.email?.split('@')[0]}
+            </span>
+            <button onClick={fazerLogout}
+                    className="text-xs underline transition"
+                    style={{ color: 'var(--suave-claro)' }}>
+              Sair
+            </button>
+          </div>
+        )}
+      </div>
     </nav>
   );
 }
