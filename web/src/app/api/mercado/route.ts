@@ -186,17 +186,44 @@ async function cotacoes(tickers: string[]) {
 }
 
 export async function GET(req: Request) {
+  // 🔐 Validar autenticação
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return Response.json({ erro: 'Não autenticado' }, { status: 401 });
+  }
+
+  const token = authHeader.slice(7);
+  const supabaseClient = cliente();
+
+  try {
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    if (!user || authError) {
+      return Response.json({ erro: 'Token inválido' }, { status: 401 });
+    }
+  } catch {
+    return Response.json({ erro: 'Erro ao validar autenticação' }, { status: 401 });
+  }
+
   const p = new URL(req.url).searchParams;
   try {
     if (p.get('cdi')) return Response.json(await cdi());
 
     const tickers = (p.get('tickers') ?? '')
       .split(',').map((t) => t.trim().toUpperCase()).filter(Boolean);
+
+    // 🔒 Validação rigorosa de tickers
+    const TICKER_REGEX = /^[A-Z0-9]{4,6}$/;
     if (tickers.length === 0) return Response.json({ erro: 'Informe tickers ou cdi=1' }, { status: 400 });
     if (tickers.length > 30) return Response.json({ erro: 'No máximo 30 tickers por vez' }, { status: 400 });
+    if (!tickers.every(t => TICKER_REGEX.test(t))) {
+      return Response.json({ erro: 'Tickers com formato inválido' }, { status: 400 });
+    }
 
     return Response.json(await cotacoes(tickers));
   } catch (e) {
-    return Response.json({ erro: (e as Error).message }, { status: 502 });
+    const mensagem = e instanceof Error ? e.message : 'Erro desconhecido';
+    // Não expor detalhes internos
+    const erroPublico = mensagem.includes('Supabase') ? 'Erro ao consultar dados' : mensagem;
+    return Response.json({ erro: erroPublico }, { status: 502 });
   }
 }

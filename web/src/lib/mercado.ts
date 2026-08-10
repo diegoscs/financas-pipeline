@@ -60,8 +60,22 @@ export const DIAS_UTEIS_MES = 21;
 
 // ── cliente ────────────────────────────────────────────────────────────────
 
+import { supabase } from './supabase';
+
 async function pedir<T>(params: Record<string, string>): Promise<T> {
-  const r = await fetch(`/api/mercado?${new URLSearchParams(params)}`);
+  // Obter token de sessão para autenticação
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+
+  if (!token) {
+    throw new Error('Não autenticado. Faça login para consultar cotações.');
+  }
+
+  const r = await fetch(`/api/mercado?${new URLSearchParams(params)}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
   const corpo = await r.json();
   if (!r.ok) throw new Error(corpo?.erro ?? `Falha ao consultar mercado (${r.status})`);
   return corpo as T;
