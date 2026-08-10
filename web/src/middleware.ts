@@ -26,16 +26,24 @@ export async function middleware(request: NextRequest) {
   );
 
   const { data } = await supabase.auth.getUser();
+  const pathname = request.nextUrl.pathname;
 
-  // Rotas públicas
-  if (request.nextUrl.pathname === '/login') {
-    if (data.user) {
+  // Rotas públicas (permitir sem autenticação)
+  const rotasPublicas = ['/login'];
+  const ehRotaPublica = rotasPublicas.includes(pathname) ||
+                         pathname.startsWith('/_next') ||
+                         pathname.startsWith('/api') ||
+                         pathname === '/favicon.ico';
+
+  if (ehRotaPublica) {
+    // Se está logado E tentando acessar /login, redirecionar para home
+    if (pathname === '/login' && data.user) {
       return NextResponse.redirect(new URL('/', request.url));
     }
     return response;
   }
 
-  // Proteger todas as outras rotas
+  // 🔐 PROTEGER TUDO MAIS - Exigir autenticação
   if (!data.user) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
@@ -44,5 +52,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/analise', '/carteira', '/onboarding', '/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  // Proteger TODAS as rotas exceto públicas
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
