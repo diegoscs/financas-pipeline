@@ -20,29 +20,6 @@ export default function AvisoSeguranca() {
 
   if (local === null) return null; // evita piscar o aviso grave durante a hidratação
 
-  if (local) {
-    return (
-      <p className="nao-imprimir mx-auto max-w-5xl px-6 pb-8 text-xs" style={{ color: 'var(--suave-claro)' }}>
-        Rodando local, sem login. Antes de publicar, rode{' '}
-        <code>sql/desfazer_policies_anon.sql</code>.
-      </p>
-    );
-  }
-
-  return (
-    <div
-      role="alert"
-      className="nao-imprimir sticky bottom-0 border-t-2 px-6 py-4"
-      style={{ borderColor: 'var(--saida)', background: 'var(--perigo-fundo)' }}
-    >
-      <p className="mx-auto max-w-5xl text-sm font-medium" style={{ color: 'var(--perigo-texto)' }}>
-        Esta página está em uma URL pública e a base aceita leitura e escrita de qualquer
-        pessoa. Suas finanças estão expostas agora.
-      </p>
-      <p className="mx-auto mt-1 max-w-5xl text-xs" style={{ color: 'var(--perigo-texto)' }}>
-        Rode <code>sql/desfazer_policies_anon.sql</code> e configure Supabase Auth
-        com policies por <code>auth.uid()</code>.
-      </p>
-    </div>
-  );
+  // RLS está configurado, não mostrar alerta
+  return null;
 }
