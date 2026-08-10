@@ -33,9 +33,16 @@ export default function Login() {
         setCarregando(false);
         return;
       }
-      setErro('Verifique seu email para confirmar o registro');
-      setEmail('');
-      setPassword('');
+      // Criar conta feita, fazer login automático
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) {
+        setErro('Conta criada! Faça login agora.');
+        setEmail('');
+        setPassword('');
+        setUsuario(false);
+      } else {
+        router.push('/');
+      }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
