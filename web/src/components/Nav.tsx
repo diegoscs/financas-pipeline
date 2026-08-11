@@ -22,29 +22,33 @@ export function Nav() {
   }
 
   return (
-    <nav className="mx-auto flex max-w-5xl items-center gap-1 px-6 py-3">
-      <span className="mr-4 font-semibold">Finanças</span>
+    <nav className="mx-auto flex max-w-5xl items-center gap-1 px-4 py-3 xs:gap-0.5 xs:px-3">
+      <span className="mr-4 font-semibold xs:text-sm">Finanças</span>
       {ITENS.map((i) => {
         const ativo = i.href === '/' ? caminho === '/' : caminho.startsWith(i.href);
         return (
           <Link key={i.href} href={i.href}
                 aria-current={ativo ? 'page' : undefined}
-                className="rounded-lg px-3 py-1.5 text-sm transition"
+                className="min-h-11 rounded-lg px-3 font-sm transition xs:min-h-[40px] xs:px-2 xs:text-xs"
                 style={{
                   background: ativo ? 'var(--acento-fraco)' : 'transparent',
                   color: ativo ? 'var(--acento)' : 'var(--suave)',
                   fontWeight: ativo ? 600 : 400,
+                  display: 'inline-flex',
+                  alignItems: 'center',
                 }}>
             {i.rotulo}
           </Link>
         );
       })}
-      <div className="ml-auto flex items-center gap-3">
+      <div className="ml-auto flex items-center gap-2 xs:gap-1">
         <Link href="/onboarding"
-              className="rounded-lg px-3 py-1.5 text-sm transition"
+              className="min-h-11 rounded-lg px-3 font-sm transition xs:min-h-[40px] xs:px-2 xs:text-xs"
               style={{
                 background: caminho.startsWith('/onboarding') ? 'var(--acento-fraco)' : 'transparent',
                 color: caminho.startsWith('/onboarding') ? 'var(--acento)' : 'var(--suave)',
+                display: 'inline-flex',
+                alignItems: 'center',
               }}>
           Configurar
         </Link>

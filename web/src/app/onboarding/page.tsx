@@ -159,7 +159,7 @@ function BoasVindas({ nome, setNome, onSeguir }: {
       <label className="block">
         <span className="rotulo">Como te chamo?</span>
         <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome"
-               className="mt-1 w-full max-w-xs border px-3 py-2 text-sm"
+               className="mt-1 w-full max-w-xs border text-sm xs:text-xs"
                style={{ borderColor: 'var(--borda-forte)' }} />
       </label>
 
@@ -211,7 +211,7 @@ function Contas({ contas, recarregar, setErro, onVoltar, onSeguir }: {
           <label className="block">
             <span className="rotulo">Banco</span>
             <select value={instituicao} onChange={(e) => setInstituicao(e.target.value)}
-                    className="mt-1 w-full border bg-white px-3 py-2 text-sm"
+                    className="mt-1 w-full border bg-white text-sm xs:text-xs"
                     style={{ borderColor: 'var(--borda-forte)' }}>
               {listarBancos().map((b) => <option key={b} value={b}>{rotuloBanco(b)}</option>)}
             </select>
@@ -219,7 +219,7 @@ function Contas({ contas, recarregar, setErro, onVoltar, onSeguir }: {
           <label className="block">
             <span className="rotulo">Tipo</span>
             <select value={tipo} onChange={(e) => setTipo(e.target.value as 'corrente' | 'cartao')}
-                    className="mt-1 w-full border bg-white px-3 py-2 text-sm"
+                    className="mt-1 w-full border bg-white text-sm xs:text-xs"
                     style={{ borderColor: 'var(--borda-forte)' }}>
               <option value="corrente">Conta corrente</option>
               <option value="cartao">Cartão de crédito</option>
@@ -232,13 +232,13 @@ function Contas({ contas, recarregar, setErro, onVoltar, onSeguir }: {
             <label className="block">
               <span className="rotulo">Dia em que a fatura fecha</span>
               <input type="number" min={1} max={31} value={fecha} onChange={(e) => setFecha(e.target.value)}
-                     placeholder="ex: 3" className="mt-1 w-full border px-3 py-2 text-sm"
+                     placeholder="ex: 3" className="mt-1 w-full border text-sm xs:text-xs"
                      style={{ borderColor: 'var(--borda-forte)' }} />
             </label>
             <label className="block">
               <span className="rotulo">Dia do vencimento</span>
               <input type="number" min={1} max={31} value={vence} onChange={(e) => setVence(e.target.value)}
-                     placeholder="ex: 10" className="mt-1 w-full border px-3 py-2 text-sm"
+                     placeholder="ex: 10" className="mt-1 w-full border text-sm xs:text-xs"
                      style={{ borderColor: 'var(--borda-forte)' }} />
             </label>
           </div>
@@ -333,7 +333,7 @@ function Reservas({ contas, recarregar, setErro, onVoltar, onSeguir }: {
           <label className="block">
             <span className="rotulo">Banco</span>
             <select value={instituicao} onChange={(e) => setInstituicao(e.target.value)}
-                    className="mt-1 w-full border bg-white px-3 py-2 text-sm"
+                    className="mt-1 w-full border bg-white text-sm xs:text-xs"
                     style={{ borderColor: 'var(--borda-forte)' }}>
               {listarBancos().map((b) => <option key={b} value={b}>{rotuloBanco(b)}</option>)}
             </select>
@@ -341,13 +341,13 @@ function Reservas({ contas, recarregar, setErro, onVoltar, onSeguir }: {
           <label className="block">
             <span className="rotulo">Como você chama</span>
             <input value={nome} onChange={(e) => setNome(e.target.value)}
-                   className="mt-1 w-full border px-3 py-2 text-sm"
+                   className="mt-1 w-full border text-sm xs:text-xs"
                    style={{ borderColor: 'var(--borda-forte)' }} />
           </label>
           <label className="block">
             <span className="rotulo">Rende quantos % do CDI</span>
-            <input type="number" min={1} value={cdi} onChange={(e) => setCdi(e.target.value)}
-                   className="mt-1 w-full border px-3 py-2 text-sm"
+            <input type="number" min={1} value={cdi} onChange={(e) => setCdi(e.target.value.replace(/[e,E]/g, ''))}
+                   className="mt-1 w-full border text-sm xs:text-xs"
                    style={{ borderColor: 'var(--borda-forte)' }} />
           </label>
         </div>
@@ -423,9 +423,9 @@ function Bolsa({ ativos, recarregar, setErro, onVoltar, onFinalizar, salvando }:
         <div className="grid gap-4 sm:grid-cols-3">
           <label className="block">
             <span className="rotulo">Ticker</span>
-            <input value={ticker} onChange={(e) => setTicker(e.target.value.toUpperCase())}
-                   placeholder="MXRF11" className="mt-1 w-full border px-3 py-2 text-sm uppercase"
-                   style={{ borderColor: 'var(--borda-forte)' }} />
+            <input value={ticker} onChange={(e) => setTicker(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                   placeholder="MXRF11" className="mt-1 w-full border text-sm uppercase xs:text-xs"
+                   style={{ borderColor: 'var(--borda-forte)' }} maxLength={6} />
             {t && !TICKER_VALIDO.test(t) && (
               <span className="mt-1 block text-xs" style={{ color: 'var(--negativo)' }}>
                 Formato da B3: quatro letras e um ou dois números, como PETR4 ou MXRF11.
@@ -439,14 +439,14 @@ function Bolsa({ ativos, recarregar, setErro, onVoltar, onFinalizar, salvando }:
           </label>
           <label className="block">
             <span className="rotulo">Quantidade</span>
-            <input type="number" min={0} step="any" value={qtd} onChange={(e) => setQtd(e.target.value)}
-                   placeholder="400" className="mt-1 w-full border px-3 py-2 text-sm"
+            <input type="number" min={0} step="0.01" value={qtd} onChange={(e) => setQtd(e.target.value.replace(/[e,E]/g, ''))}
+                   placeholder="400" className="mt-1 w-full border text-sm xs:text-xs"
                    style={{ borderColor: 'var(--borda-forte)' }} />
           </label>
           <label className="block">
             <span className="rotulo">Preço médio</span>
-            <input type="number" min={0} step="any" value={pm} onChange={(e) => setPm(e.target.value)}
-                   placeholder="9,80" className="mt-1 w-full border px-3 py-2 text-sm"
+            <input type="number" min={0} step="0.01" value={pm} onChange={(e) => setPm(e.target.value.replace(/[e,E]/g, ''))}
+                   placeholder="9,80" className="mt-1 w-full border text-sm xs:text-xs"
                    style={{ borderColor: 'var(--borda-forte)' }} />
           </label>
         </div>

@@ -1,5 +1,11 @@
 'use client';
 
+/**
+ * ⚠️ DEPRECADO: Este componente é redundante com LayoutClient.
+ * LayoutClient já faz a proteção de rota. Manter apenas para compatibilidade.
+ * TODO: Remover este arquivo quando LayoutClient estiver 100% estável.
+ */
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';

@@ -234,7 +234,8 @@ export async function prepararArquivo(file: File, instituicao: string): Promise<
   for (const h of duplicadasPorPrefixo) duplicadas.add(h);
 
   const datas = res.transacoes.map((t) => t.data).sort();
-  const periodo = { de: datas[0], ate: datas[datas.length - 1] };
+  if (datas.length === 0) throw new Error('Arquivo vazio: nenhuma transação encontrada');
+  const periodo = { de: datas[0]!, ate: datas[datas.length - 1]! };
   const jaNoPeriodo = await contarNoPeriodo(conta.id, periodo.de, periodo.ate);
 
   const faturaExistente = res.fatura
@@ -587,7 +588,10 @@ async function registrarLog(
     duracao_ms: Date.now() - inicio,
   });
   // Falhar o log não pode derrubar a importação: o dado já está gravado.
-  if (error) console.warn('não consegui registrar o log de importação:', error.message);
+  // MAS: sem log, o usuário não consegue desfazer depois. É crítico avisar.
+  if (error) {
+    console.error('CRÍTICO: não consegui registrar o log de importação. Importação gravada mas desfazer será impossível.', error);
+  }
 }
 
 export interface Importacao {

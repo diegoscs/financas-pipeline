@@ -397,14 +397,14 @@ function LinhaReserva({ reserva, saldo, cdi, onSalvo, setErro }: {
           <div className="flex flex-wrap items-end gap-3">
             <label className="block">
               <span className="rotulo">Saldo hoje</span>
-              <input type="number" step="any" value={valor} onChange={(e) => setValor(e.target.value)}
-                     className="mt-1 w-40 border px-3 py-2 text-sm"
+              <input type="number" step="0.01" value={valor} onChange={(e) => setValor(e.target.value.replace(/[e,E]/g, ''))}
+                     className="mt-1 w-40 border text-sm xs:text-xs"
                      style={{ borderColor: 'var(--borda-forte)' }} />
             </label>
             <label className="block">
               <span className="rotulo">Rende quantos % do CDI</span>
-              <input type="number" step="any" min={1} value={taxa} onChange={(e) => setTaxa(e.target.value)}
-                     className="mt-1 w-28 border px-3 py-2 text-sm"
+              <input type="number" step="0.01" min={1} value={taxa} onChange={(e) => setTaxa(e.target.value.replace(/[e,E]/g, ''))}
+                     className="mt-1 w-28 border text-sm xs:text-xs"
                      style={{ borderColor: 'var(--borda-forte)' }} />
             </label>
             <button onClick={salvar} disabled={ocupado || !(Number(taxa) > 0)}
@@ -618,18 +618,18 @@ function Proventos({ ativoId, qtd, historico, onSalvo, setErro }: {
         <label className="block">
           <span className="rotulo">Mês</span>
           <input type="month" value={competencia} onChange={(e) => setCompetencia(e.target.value)}
-                 className="mt-1 border px-3 py-2 text-sm" style={{ borderColor: 'var(--borda-forte)' }} />
+                 className="mt-1 border text-sm xs:text-xs" style={{ borderColor: 'var(--borda-forte)' }} />
         </label>
         <label className="block">
           <span className="rotulo">Valor por cota</span>
-          <input type="number" step="any" min={0} value={valor} onChange={(e) => setValor(e.target.value)}
-                 placeholder="0,10" className="mt-1 w-28 border px-3 py-2 text-sm"
+          <input type="number" step="0.01" min={0} value={valor} onChange={(e) => setValor(e.target.value.replace(/[e,E]/g, ''))}
+                 placeholder="0,10" className="mt-1 w-28 border text-sm xs:text-xs"
                  style={{ borderColor: 'var(--borda-forte)' }} />
         </label>
         <label className="block">
           <span className="rotulo">Tipo</span>
           <select value={tipo} onChange={(e) => setTipo(e.target.value as TipoProvento)}
-                  className="mt-1 border bg-white px-3 py-2 text-sm" style={{ borderColor: 'var(--borda-forte)' }}>
+                  className="mt-1 border bg-white text-sm xs:text-xs" style={{ borderColor: 'var(--borda-forte)' }}>
             <option value="rendimento">Rendimento</option>
             <option value="dividendo">Dividendo</option>
             <option value="jcp">JCP</option>
@@ -662,13 +662,13 @@ function EditarPosicao({ ativo, qtd, pm, onSalvo, setErro }: {
     <div className="flex flex-wrap items-end gap-3 border-t pt-4" style={{ borderColor: 'var(--borda)' }}>
       <label className="block">
         <span className="rotulo">Quantidade</span>
-        <input type="number" step="any" min={0} value={q} onChange={(e) => setQ(e.target.value)}
-               className="mt-1 w-28 border px-3 py-2 text-sm" style={{ borderColor: 'var(--borda-forte)' }} />
+        <input type="number" step="0.01" min={0} value={q} onChange={(e) => setQ(e.target.value.replace(/[e,E]/g, ''))}
+               className="mt-1 w-28 border text-sm xs:text-xs" style={{ borderColor: 'var(--borda-forte)' }} />
       </label>
       <label className="block">
         <span className="rotulo">Preço médio</span>
-        <input type="number" step="any" min={0} value={p} onChange={(e) => setP(e.target.value)}
-               className="mt-1 w-28 border px-3 py-2 text-sm" style={{ borderColor: 'var(--borda-forte)' }} />
+        <input type="number" step="0.01" min={0} value={p} onChange={(e) => setP(e.target.value.replace(/[e,E]/g, ''))}
+               className="mt-1 w-28 border text-sm xs:text-xs" style={{ borderColor: 'var(--borda-forte)' }} />
       </label>
       <button onClick={async () => {
         setOcupado(true); setErro(null);
@@ -706,19 +706,19 @@ function NovoAtivo({ onSalvo, setErro }: {
       <div className="flex flex-wrap items-end gap-3">
         <label className="block">
           <span className="rotulo">Ticker</span>
-          <input value={ticker} onChange={(e) => setTicker(e.target.value.toUpperCase())}
-                 placeholder="MXRF11" className="mt-1 w-32 border px-3 py-2 text-sm uppercase"
-                 style={{ borderColor: 'var(--borda-forte)' }} />
+          <input value={ticker} onChange={(e) => setTicker(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                 placeholder="MXRF11" className="mt-1 w-32 border text-sm uppercase xs:text-xs"
+                 style={{ borderColor: 'var(--borda-forte)' }} maxLength={6} />
         </label>
         <label className="block">
           <span className="rotulo">Quantidade</span>
-          <input type="number" step="any" min={0} value={qtd} onChange={(e) => setQtd(e.target.value)}
-                 className="mt-1 w-28 border px-3 py-2 text-sm" style={{ borderColor: 'var(--borda-forte)' }} />
+          <input type="number" step="0.01" min={0} value={qtd} onChange={(e) => setQtd(e.target.value.replace(/[e,E]/g, ''))}
+                 className="mt-1 w-28 border text-sm xs:text-xs" style={{ borderColor: 'var(--borda-forte)' }} />
         </label>
         <label className="block">
           <span className="rotulo">Preço médio</span>
-          <input type="number" step="any" min={0} value={pm} onChange={(e) => setPm(e.target.value)}
-                 className="mt-1 w-28 border px-3 py-2 text-sm" style={{ borderColor: 'var(--borda-forte)' }} />
+          <input type="number" step="0.01" min={0} value={pm} onChange={(e) => setPm(e.target.value.replace(/[e,E]/g, ''))}
+                 className="mt-1 w-28 border text-sm xs:text-xs" style={{ borderColor: 'var(--borda-forte)' }} />
         </label>
         <button onClick={async () => {
           setOcupado(true); setErro(null);

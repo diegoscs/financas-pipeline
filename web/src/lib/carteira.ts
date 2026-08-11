@@ -40,7 +40,14 @@ export async function carregarCarteira() {
   if (p.error) throw p.error;
   if (d.error) throw d.error;
 
-  const numero = (v: unknown) => Number(v);
+  const numero = (v: unknown) => {
+    const n = Number(v);
+    if (Number.isNaN(n)) {
+      console.error('Conversão numérica resultou em NaN:', v);
+      return 0; // fallback seguro
+    }
+    return n;
+  };
   return {
     ativos: (a.data ?? []) as Ativo[],
     posicoes: (p.data ?? []).map((x) => ({

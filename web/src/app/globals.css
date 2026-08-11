@@ -44,6 +44,10 @@ html, body {
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  padding-top: max(0px, env(safe-area-inset-top));
+  padding-bottom: max(0px, env(safe-area-inset-bottom));
+  padding-left: max(0px, env(safe-area-inset-left));
+  padding-right: max(0px, env(safe-area-inset-right));
 }
 
 .tabular { font-variant-numeric: tabular-nums; }
@@ -74,10 +78,17 @@ html, body {
   border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 500;
-  padding: 0.5rem 1rem;
+  padding: 0.625rem 1rem;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: filter 0.15s, background 0.15s;
 }
-.btn:hover:not(:disabled) { filter: brightness(0.95); }
+@media (hover: hover) {
+  .btn:hover:not(:disabled) { filter: brightness(0.95); }
+}
+.btn:active:not(:disabled) { filter: brightness(0.9); }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .btn-principal { background: var(--acento); color: #fff; }
@@ -87,8 +98,16 @@ html, body {
   color: var(--texto);
 }
 
-select, input[type='text'], input:not([type]) {
+select, input[type='text'], input:not([type]), input[type='email'], input[type='password'], input[type='number'] {
   border-radius: 8px;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+}
+
+textarea {
+  border-radius: 8px;
+  min-height: 100px;
+  padding: 0.5rem 0.75rem;
 }
 
 /* Foco visível.

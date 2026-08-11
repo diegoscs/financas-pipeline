@@ -48,9 +48,12 @@ export function categorizar(transacoes: Transacao[], cfg: Regras): Transacao[] {
     .map((r) => {
       try {
         return { re: new RegExp(r.padrao, 'i'), categoria_id: r.categoria_id };
-      } catch {
+      } catch (e) {
         // Padrão inválido no banco: ignorar em vez de derrubar a importação.
-        console.warn(`Regra ${r.id} tem regex inválido e foi ignorada: ${r.padrao}`);
+        // MAS: avisar para que o usuário corrija o padrão, senão muitas transações
+        // viram "Não classificado" silenciosamente.
+        const msg = `⚠️ Regra ${r.id} ignorada: regex inválido "${r.padrao}". Erro: ${e instanceof Error ? e.message : String(e)}`;
+        console.error(msg);
         return null;
       }
     })

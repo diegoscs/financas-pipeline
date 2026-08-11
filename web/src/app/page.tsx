@@ -89,7 +89,7 @@ export default function Importar() {
 
       <div>
         <span className="mb-2 block text-sm font-medium">Banco</span>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 xs:gap-2">
           {bancos.map((b) => {
             const on = b.instituicao === banco;
             const m = marcaBanco(b.instituicao);
@@ -98,7 +98,7 @@ export default function Importar() {
                 key={b.instituicao}
                 onClick={() => setBanco(b.instituicao)}
                 aria-pressed={on}
-                className="flex items-center gap-2.5 rounded-xl border-2 px-4 py-2.5 text-sm font-semibold transition"
+                className="flex min-h-11 items-center gap-2.5 rounded-xl border-2 px-4 py-2.5 text-sm font-semibold transition xs:px-3 xs:text-xs"
                 style={{
                   borderColor: on ? m.cor : 'var(--borda-forte)',
                   background: on ? `${m.cor}12` : 'var(--painel)',
@@ -226,7 +226,7 @@ export default function Importar() {
                 <select
                   value={competencia}
                   onChange={(e) => setCompetencia(e.target.value)}
-                  className="rounded-lg border bg-white px-3 py-1.5 text-sm capitalize"
+                  className="border bg-white text-sm capitalize xs:text-xs"
                   style={{
                     borderColor: prep.fatura.confianca === 'arquivo'
                       ? 'var(--borda-forte)' : 'var(--aviso-borda)',
@@ -267,8 +267,8 @@ export default function Importar() {
             </p>
           ))}
 
-          <div className="overflow-hidden rounded-lg border" style={{ borderColor: 'var(--borda)' }}>
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-lg border" style={{ borderColor: 'var(--borda)' }}>
+            <table className="min-w-full text-sm xs:text-xs">
               <thead>
                 <tr className="border-b" style={{ background: '#fafbfc', borderColor: 'var(--borda)', color: 'var(--suave)' }}>
                   <th className="px-3 py-2 text-left font-medium">Data</th>
@@ -309,18 +309,18 @@ export default function Importar() {
             </table>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 xs:gap-2">
             <button
               onClick={confirmar}
               disabled={ocupado || novas.length === 0}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+              className="min-h-11 rounded-lg px-4 font-medium text-white disabled:opacity-40 xs:px-3 xs:text-sm"
               style={{ background: 'var(--acento)' }}
             >
-              {novas.length === 0 ? 'Nada novo para gravar' : `Gravar ${novas.length} lançamento(s)`}
+              {novas.length === 0 ? 'Nada novo' : `Gravar ${novas.length}`}
             </button>
             <button
               onClick={() => setPrep(null)}
-              className="rounded-lg border px-4 py-2 text-sm"
+              className="min-h-11 rounded-lg border px-4 xs:px-3 xs:text-sm"
               style={{ borderColor: 'var(--borda-forte)', color: 'var(--suave)' }}
             >
               Cancelar

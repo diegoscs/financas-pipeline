@@ -417,27 +417,25 @@ export default function Analise() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Quanto gastei</h1>
-        <div className="nao-imprimir flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 xs:gap-2">
+        <h1 className="xs:text-xl text-2xl font-semibold tracking-tight">Quanto gastei</h1>
+        <div className="nao-imprimir flex items-center gap-2 xs:gap-1">
           <select value={mes ?? 'todos'}
                   onChange={(e) => setMes(e.target.value === 'todos' ? null : e.target.value)}
-                  className="border bg-white px-3 py-1.5 text-sm capitalize"
+                  className="border bg-white text-sm capitalize xs:text-xs"
                   style={{ borderColor: 'var(--borda-forte)' }}>
             <option value="todos">Todo o período</option>
             {meses.map((m) => <option key={m} value={m}>{competenciaRotulo(`${m}-01`)}</option>)}
           </select>
-          <button onClick={() => window.print()} className="btn btn-neutro">Exportar PDF</button>
+          <button onClick={() => window.print()} className="btn btn-neutro xs:text-xs">Exportar PDF</button>
         </div>
       </div>
 
-      {/* Cinco fatias com regras de sinal diferentes; misturá-las numa rolagem
-          só foi o que deixou a tela confusa. */}
-      <nav className="nao-imprimir flex flex-wrap gap-1 rounded-xl border bg-white p-1"
+      <nav className="nao-imprimir flex flex-wrap gap-1 rounded-xl border bg-white p-1 xs:gap-0.5"
            style={{ borderColor: 'var(--borda-forte)' }}>
         {ABAS.map((a) => (
           <button key={a.id} onClick={() => setAba(a.id)}
-                  className="rounded-lg px-4 py-2 text-sm font-medium transition"
+                  className="min-h-11 rounded-lg px-4 font-medium transition xs:px-2 xs:text-sm"
                   style={{
                     background: aba === a.id ? 'var(--acento)' : 'transparent',
                     color: aba === a.id ? '#fff' : 'var(--suave)',
@@ -448,9 +446,11 @@ export default function Analise() {
       </nav>
 
       {truncado && (
-        <p role="alert" className="rounded-lg border px-4 py-3 text-sm"
+        <p role="alert" className="rounded-lg border px-4 py-3 text-sm font-medium"
            style={{ borderColor: 'var(--perigo-borda)', background: 'var(--perigo-fundo)', color: 'var(--perigo-texto)' }}>
-          Mais de {LIMITE_LINHAS.toLocaleString('pt-BR')} lançamentos: os totais estão incompletos.
+          ⚠️ Aviso Crítico: Mais de {LIMITE_LINHAS.toLocaleString('pt-BR')} lançamentos encontrados.
+          Os totais abaixo estão INCOMPLETOS e não podem ser usados para decisões financeiras.
+          Considere filtrar por período menor ou contatar o suporte.
         </p>
       )}
 
@@ -489,11 +489,11 @@ export default function Analise() {
                acao={
                  <div className="flex flex-wrap gap-2">
                    {bancosCartao.length > 1 && (
-                     <div className="flex rounded-lg border bg-white p-0.5" style={{ borderColor: 'var(--borda-forte)' }}>
+                     <div className="flex gap-1 rounded-lg border bg-white p-1 xs:gap-0.5 xs:p-0.5" style={{ borderColor: 'var(--borda-forte)' }}>
                        {[null, ...bancosCartao].map((b) => (
                          <button key={b ?? 'todos'} onClick={() => setBancoCartao(b)}
                                  aria-pressed={bancoCartao === b}
-                                 className="rounded-md px-3 py-1 text-xs font-medium transition"
+                                 className="min-h-10 rounded-md px-3 text-xs font-medium transition xs:min-h-[36px] xs:px-2"
                                  style={{
                                    background: bancoCartao === b ? 'var(--acento)' : 'transparent',
                                    color: bancoCartao === b ? '#fff' : 'var(--suave)',
@@ -503,10 +503,10 @@ export default function Analise() {
                        ))}
                      </div>
                    )}
-                   <div className="flex rounded-lg border bg-white p-0.5" style={{ borderColor: 'var(--borda-forte)' }}>
+                   <div className="flex gap-1 rounded-lg border bg-white p-1 xs:gap-0.5 xs:p-0.5" style={{ borderColor: 'var(--borda-forte)' }}>
                      {([['compra', 'O que gastei'], ['fatura', 'O que vou pagar']] as const).map(([v, r]) => (
                        <button key={v} onClick={() => setEixoCartao(v)} aria-pressed={eixoCartao === v}
-                               className="rounded-md px-3 py-1 text-xs font-medium transition"
+                               className="min-h-10 rounded-md px-3 text-xs font-medium transition xs:min-h-[36px] xs:px-2"
                                style={{
                                  background: eixoCartao === v ? 'var(--acento)' : 'transparent',
                                  color: eixoCartao === v ? '#fff' : 'var(--suave)',
@@ -1042,7 +1042,7 @@ function ItemEditavel({ linha, cats, onSalvo, instituicao, corCategoria }: {
             <label className="block">
               <span className="rotulo">Categoria</span>
               <select value={catId || ''} onChange={(e) => setCatId(Number(e.target.value))}
-                      className="mt-1 w-full border bg-white px-2 py-2 text-sm"
+                      className="mt-1 w-full border bg-white text-sm xs:text-xs"
                       style={{ borderColor: 'var(--borda-forte)' }}>
                 <option value="">escolha…</option>
                 {cats.filter((c) => c.nome !== NOME_SEM_CATEGORIA).map((c) => (
@@ -1053,7 +1053,7 @@ function ItemEditavel({ linha, cats, onSalvo, instituicao, corCategoria }: {
             <label className="block">
               <span className="rotulo">Nome exibido</span>
               <input value={apelido} onChange={(e) => setApelido(e.target.value)} placeholder={base}
-                     className="mt-1 w-full border bg-white px-2 py-2 text-sm"
+                     className="mt-1 w-full border bg-white text-sm xs:text-xs"
                      style={{ borderColor: 'var(--borda-forte)' }} />
             </label>
           </div>
@@ -1085,10 +1085,10 @@ function ItemEditavel({ linha, cats, onSalvo, instituicao, corCategoria }: {
                 Excluir
               </button>
             ) : (
-              <span className="ml-auto flex items-center gap-2 text-xs" style={{ color: 'var(--perigo-texto)' }}>
+              <span className="ml-auto flex items-center gap-2 text-xs xs:gap-1" style={{ color: 'var(--perigo-texto)' }}>
                 Excluir mesmo?
                 <button onClick={excluir} disabled={ocupado}
-                        className="rounded-md px-2 py-1 font-medium text-white" style={{ background: 'var(--negativo)' }}>
+                        className="min-h-10 rounded-md px-2 font-medium text-white xs:min-h-[36px] xs:px-1.5" style={{ background: 'var(--negativo)' }}>
                   Sim
                 </button>
                 <button onClick={() => setConfirmaExcluir(false)} className="underline">não</button>

@@ -40,6 +40,14 @@ export interface ContaExterna {
   entrada: Tratamento;
 }
 
+/**
+ * ⚠️ CRÍTICO: CPF hardcoded quebra multi-tenancy!
+ * TODO: Obter do usuário via Supabase Auth + tabela contas.cpf_mascarado
+ * Ver: sql/09_adicionar_cpf_contas.sql
+ *
+ * Por enquanto, funciona apenas se todos os usuários tiverem este mesmo CPF.
+ * Cada conta precisa armazenar seu próprio CPF para reconhecer transferências internas.
+ */
 const MEU_CPF = '406.048';
 
 export const CONTAS_EXTERNAS: ContaExterna[] = [
