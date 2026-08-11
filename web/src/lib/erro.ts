@@ -47,7 +47,10 @@ export function explicarErro(e: unknown): string {
     return `Já existe registro com essa chave. ${bruto}`;
   }
   if (/row-level security|permission denied/i.test(bruto)) {
-    return 'A base recusou a escrita (RLS). Confira se as policies tmp_anon_* ainda existem.';
+    // Extrair qual tabela está bloqueando (se houver)
+    const tabelaMatch = bruto.match(/on (table )?["']?(\w+)["']?/i);
+    const tabela = tabelaMatch?.[2] ? ` (tabela: ${tabelaMatch[2]})` : '';
+    return `A base recusou a escrita (RLS)${tabela}. Detalhe: ${bruto}`;
   }
   if (/Failed to fetch|NetworkError/i.test(bruto)) {
     return 'Não consegui falar com o Supabase. Verifique a conexão e tente de novo.';
