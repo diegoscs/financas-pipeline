@@ -20,6 +20,7 @@ import { explicarErro } from '@/lib/erro';
 import { dinheiro, dataCurta } from '@/lib/formato';
 import { competenciaRotulo } from '@/lib/competencia';
 import { Marca } from '@/components/Marca';
+import { useOcultarDinheiro } from '@/lib/useOcultarDinheiro';
 import {
   buscarCdi, buscarCotacoes, CDI_PADRAO, DIAS_UTEIS_MES, renderNoPeriodo,
   type Cdi, type Cotacao,
@@ -44,6 +45,8 @@ interface Movimento {
 }
 
 export default function Carteira() {
+  const { oculto } = useOcultarDinheiro();
+
   const [ativos, setAtivos] = useState<Ativo[]>([]);
   const [posicoes, setPosicoes] = useState<Posicao[]>([]);
   const [proventos, setProventos] = useState<Provento[]>([]);
@@ -56,6 +59,12 @@ export default function Carteira() {
   const [carregando, setCarregando] = useState(true);
   const [buscando, setBuscando] = useState(false);
   const [movimentos, setMovimentos] = useState<Movimento[]>([]);
+
+  // Wrapper para dinheiro() que aplica ocultação
+  const din = (valor: number) => {
+    const texto = dinheiro(valor);
+    return oculto ? '•'.repeat(Math.max(8, texto.length)) : texto;
+  };
 
   const carregar = useCallback(async () => {
     try {
@@ -243,7 +252,7 @@ function Resumo({ valorBolsa, custoTotal, semCotacao, saldoReservas, reservasSem
       <div className="painel-destaque p-6">
         <p className="rotulo">Você tem guardado</p>
         <p className="tabular mt-1 text-[3rem] font-semibold leading-none tracking-tight">
-          {dinheiro(total)}
+          {din(total)}
         </p>
 
         {/* Onde está o dinheiro, antes de o usuário precisar rolar a tela. */}
@@ -258,7 +267,7 @@ function Resumo({ valorBolsa, custoTotal, semCotacao, saldoReservas, reservasSem
                 <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full align-middle"
                       style={{ background: 'var(--acento)' }} />
                 <span style={{ color: 'var(--suave)' }}>Bolsa</span>
-                <span className="tabular ml-2 font-semibold">{dinheiro(valorBolsa)}</span>
+                <span className="tabular ml-2 font-semibold">{din(valorBolsa)}</span>
                 {custoTotal > 0 && (
                   <span className="tabular ml-2" style={{ color: ganho >= 0 ? 'var(--entrada)' : 'var(--negativo)' }}>
                     {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
@@ -269,7 +278,7 @@ function Resumo({ valorBolsa, custoTotal, semCotacao, saldoReservas, reservasSem
                 <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full align-middle"
                       style={{ background: 'var(--entrada)' }} />
                 <span style={{ color: 'var(--suave)' }}>Reserva</span>
-                <span className="tabular ml-2 font-semibold">{dinheiro(saldoReservas)}</span>
+                <span className="tabular ml-2 font-semibold">{din(saldoReservas)}</span>
               </span>
             </div>
           </>

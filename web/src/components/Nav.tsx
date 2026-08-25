@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useUsuario } from '@/lib/useUsuario';
+import { BotaoOcultarDinheiro } from './BotaoOcultarDinheiro';
 
 const ITENS = [
   { href: '/', rotulo: 'Importar' },
@@ -52,6 +53,7 @@ export function Nav() {
               }}>
           Configurar
         </Link>
+        <BotaoOcultarDinheiro />
         {usuario && (
           <div className="flex items-center gap-2 border-l pl-3" style={{ borderColor: 'var(--borda)' }}>
             <span className="text-xs" style={{ color: 'var(--suave)' }}>
