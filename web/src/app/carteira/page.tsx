@@ -208,7 +208,7 @@ export default function Carteira() {
         <>
           <Resumo valorBolsa={valorTotal} custoTotal={custoTotal} semCotacao={semCotacao}
                   saldoReservas={saldoReservas} reservasSemSaldo={reservasSemSaldo}
-                  rendaPrevista={rendaPrevista} rendimentoReservas={rendimentoReservas} cdi={cdi} />
+                  rendaPrevista={rendaPrevista} rendimentoReservas={rendimentoReservas} cdi={cdi} oculto={oculto} />
 
           {reservas.length > 0 && (
             <Reservas reservas={reservas} saldos={saldos} cdi={cdi} onSalvo={carregar} setErro={setErro} />
@@ -237,15 +237,21 @@ export default function Carteira() {
 // ── resumo ─────────────────────────────────────────────────────────────────
 
 function Resumo({ valorBolsa, custoTotal, semCotacao, saldoReservas, reservasSemSaldo,
-                 rendaPrevista, rendimentoReservas, cdi }: {
+                 rendaPrevista, rendimentoReservas, cdi, oculto }: {
   valorBolsa: number; custoTotal: number; semCotacao: number;
   saldoReservas: number; reservasSemSaldo: number;
-  rendaPrevista: number; rendimentoReservas: number | null; cdi: Cdi | null;
+  rendaPrevista: number; rendimentoReservas: number | null; cdi: Cdi | null; oculto: boolean;
 }) {
   const total = valorBolsa + saldoReservas;
   const ganho = valorBolsa - custoTotal;
   const pct = custoTotal > 0 ? (ganho / custoTotal) * 100 : 0;
   const fatiaBolsa = total > 0 ? (valorBolsa / total) * 100 : 0;
+
+  // Wrapper para dinheiro() que aplica ocultação
+  const din = (valor: number) => {
+    const texto = dinheiro(valor);
+    return oculto ? '•'.repeat(Math.max(8, texto.length)) : texto;
+  };
 
   return (
     <div className="space-y-4">
