@@ -65,6 +65,40 @@ export interface ResultadoCorrecao {
 }
 
 /**
+ * Dono das linhas que vamos escrever.
+ *
+ * Todas as policies de escrita comparam com `auth.uid()`. Gravar sem
+ * `usuario_id` é recusado com 42501 ("new row violates row-level security
+ * policy"), que na tela aparecia como erro cru de banco no meio de uma
+ * correção de categoria.
+ */
+async function usuarioAtual(): Promise<string> {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  const id = data.user?.id;
+  if (!id) throw new Error('Sessão expirada. Entre de novo para salvar a correção.');
+  return id;
+}
+
+/**
+ * UPDATE e DELETE barrados por RLS não dão erro: não encontram linha nenhuma.
+ *
+ * Sem esta checagem o app dizia "1 lançamento recategorizado" e o banco
+ * continuava igual — foi exatamente o que aconteceu enquanto faltavam as
+ * policies de escrita (ver sql/14). Pedimos `.select()` na escrita e tratamos
+ * "zero linhas" como falha, porque o lançamento existe: a tela está mostrando
+ * ele.
+ */
+function exigirLinhas(linhas: unknown[] | null, acao: string): void {
+  if (!linhas || linhas.length === 0) {
+    throw new Error(
+      `A base não deixou ${acao} (nenhuma linha alterada). ` +
+      'Em geral é permissão de escrita (RLS) faltando — confira as policies da tabela.',
+    );
+  }
+}
+
+/**
  * Aplica a correção.
  *
  * `criarRegra` é opcional de propósito: nem toda correção deve virar regra.
@@ -83,12 +117,15 @@ export async function corrigirCategoria(opts: {
   aplicarRetroativo: boolean;
 }): Promise<ResultadoCorrecao> {
   const padrao = sugerirPadrao(opts.descricao);
+  const dono = await usuarioAtual();
 
   const u = await supabase
     .from('transacoes')
     .update({ categoria_id: opts.categoriaId, origem_categoria: 'manual', confianca: 1 })
-    .eq('hash_natural', opts.hashNatural);
+    .eq('hash_natural', opts.hashNatural)
+    .select('hash_natural');
   if (u.error) throw u.error;
+  exigirLinhas(u.data, 'corrigir a categoria deste lançamento');
 
   let atualizadas = 1;
   let regraCriada = false;
@@ -98,11 +135,23 @@ export async function corrigirCategoria(opts: {
     // TROCAR a regra, não criar uma segunda. Duas regras com o mesmo padrão
     // e categorias diferentes fazem vencer a mais antiga — ou seja, a
     // correção nova é ignorada em silêncio.
+    //
+    // `usuario_id` vai explícito: a policy de INSERT exige
+    // `usuario_id = auth.uid()` e a regra sem dono era recusada. O conflito
+    // também é por (dono, padrão) e não só por padrão — a mesma regra em duas
+    // contas são duas linhas legítimas, e a de outro dono nem é visível para
+    // atualizar. Ver sql/14.
     const r = await supabase
       .from('regras_categoria')
       .upsert(
-        { padrao, categoria_id: opts.categoriaId, prioridade: PRIORIDADE_APRENDIDA, ativa: true },
-        { onConflict: 'padrao' },
+        {
+          padrao,
+          categoria_id: opts.categoriaId,
+          prioridade: PRIORIDADE_APRENDIDA,
+          ativa: true,
+          usuario_id: dono,
+        },
+        { onConflict: 'usuario_id,padrao' },
       );
     if (r.error) throw r.error;
     regraCriada = true;
@@ -130,12 +179,16 @@ export async function corrigirCategoria(opts: {
       .map((t) => t.hash_natural);
 
     if (alvos.length > 0) {
+      // Conta o que o banco confirmou, não o que pedimos: com RLS no meio, os
+      // dois números podem não bater e mostrar na tela um total que não
+      // aconteceu é pior do que mostrar um total menor.
       const up = await supabase
         .from('transacoes')
         .update({ categoria_id: opts.categoriaId, origem_categoria: 'regra', confianca: 0.95 })
-        .in('hash_natural', alvos);
+        .in('hash_natural', alvos)
+        .select('hash_natural');
       if (up.error) throw up.error;
-      atualizadas += alvos.length;
+      atualizadas += up.data?.length ?? 0;
     }
   }
 
@@ -152,11 +205,13 @@ export async function corrigirCategoria(opts: {
  */
 export async function renomear(hashNatural: string, apelido: string): Promise<void> {
   const limpo = apelido.trim();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('transacoes')
     .update({ apelido: limpo === '' ? null : limpo })
-    .eq('hash_natural', hashNatural);
+    .eq('hash_natural', hashNatural)
+    .select('hash_natural');
   if (error) throw error;
+  exigirLinhas(data, 'renomear este lançamento');
 }
 
 /**
@@ -167,6 +222,11 @@ export async function renomear(hashNatural: string, apelido: string): Promise<vo
  * caminho é desfazer a importação inteira.
  */
 export async function excluirLancamento(hashNatural: string): Promise<void> {
-  const { error } = await supabase.from('transacoes').delete().eq('hash_natural', hashNatural);
+  const { data, error } = await supabase
+    .from('transacoes')
+    .delete()
+    .eq('hash_natural', hashNatural)
+    .select('hash_natural');
   if (error) throw error;
+  exigirLinhas(data, 'excluir este lançamento');
 }
