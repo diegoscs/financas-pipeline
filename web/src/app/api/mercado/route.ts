@@ -39,20 +39,36 @@ const SGS_CDI = 'https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/
  */
 const VALIDADE_COTACAO_MS = 30 * 60 * 1000;
 
-function cliente() {
+/**
+ * Cliente do Supabase para esta requisição.
+ *
+ * Com `jwt`, o banco vê a requisição como o usuário que chamou a rota; sem
+ * ele, como anônimo. A diferença deixou de ser cosmética quando `cotacoes` e
+ * `indices` ganharam RLS (migração 15): o cache é `to authenticated`, porque
+ * a chave anônima é pública — ela vai no bundle do browser, e qualquer um
+ * com ela poderia envenenar o preço que o app mostra como se fosse da B3.
+ *
+ * Havia um segundo efeito, esse já acontecendo em silêncio: como anônimo, o
+ * `select` em `ativos` não enxergava ativo nenhum (o RLS de `ativos` filtra
+ * pelas contas do usuário). Sem o id do ativo, a cotação era buscada na
+ * brapi e NUNCA gravada no cache — o cache que existe justamente para não
+ * torrar as 15.000 requisições mensais do plano gratuito.
+ */
+function cliente(jwt?: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error('Faltam as variáveis do Supabase no ambiente.');
-  return createClient(url, key, { auth: { persistSession: false } });
+  return createClient(url, key, {
+    auth: { persistSession: false },
+    global: jwt ? { headers: { Authorization: `Bearer ${jwt}` } } : undefined,
+  });
 }
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 
 // ── CDI ────────────────────────────────────────────────────────────────────
 
-async function cdi() {
-  const db = cliente();
-
+async function cdi(db: ReturnType<typeof cliente>) {
   // A série só muda em dia útil; o registro mais recente serve por vários dias.
   const { data: cache } = await db.from('indices')
     .select('data,valor').eq('nome', 'CDI')
@@ -102,8 +118,7 @@ interface RespostaBrapi {
   message?: string;
 }
 
-async function cotacoes(tickers: string[]) {
-  const db = cliente();
+async function cotacoes(tickers: string[], db: ReturnType<typeof cliente>) {
   const token = process.env.BRAPI_TOKEN;
 
   const { data: ativos } = await db.from('ativos').select('id,ticker').in('ticker', tickers);
@@ -193,10 +208,12 @@ export async function GET(req: Request) {
   }
 
   const token = authHeader.slice(7);
-  const supabaseClient = cliente();
 
+  // Valida o token com a chave anônima; só depois monta o cliente que fala
+  // com as tabelas, esse já no nome do usuário. Validar e consultar com o
+  // mesmo cliente anônimo era o que deixava as escritas de cache sem dono.
   try {
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    const { data: { user }, error: authError } = await cliente().auth.getUser(token);
     if (!user || authError) {
       return Response.json({ erro: 'Token inválido' }, { status: 401 });
     }
@@ -204,9 +221,11 @@ export async function GET(req: Request) {
     return Response.json({ erro: 'Erro ao validar autenticação' }, { status: 401 });
   }
 
+  const db = cliente(token);
+
   const p = new URL(req.url).searchParams;
   try {
-    if (p.get('cdi')) return Response.json(await cdi());
+    if (p.get('cdi')) return Response.json(await cdi(db));
 
     const tickers = (p.get('tickers') ?? '')
       .split(',').map((t) => t.trim().toUpperCase()).filter(Boolean);
@@ -219,7 +238,7 @@ export async function GET(req: Request) {
       return Response.json({ erro: 'Tickers com formato inválido' }, { status: 400 });
     }
 
-    return Response.json(await cotacoes(tickers));
+    return Response.json(await cotacoes(tickers, db));
   } catch (e) {
     const mensagem = e instanceof Error ? e.message : 'Erro desconhecido';
     // Não expor detalhes internos

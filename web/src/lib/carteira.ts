@@ -65,8 +65,12 @@ export async function salvarPosicao(
   ticker: string, tipo: TipoAtivo, quantidade: number, precoMedio: number, contaId: number | null,
 ) {
   const t = ticker.trim().toUpperCase();
+  // Conflito por (conta, ticker): o ticker era único no banco inteiro, então
+  // o segundo usuário a cadastrar PETR4 colidiria com a linha do primeiro —
+  // que ele não enxerga nem para atualizar. Mesmo problema que `padrao` tinha
+  // em regras_categoria. Ver sql/15.
   const { data: ativo, error: e1 } = await supabase.from('ativos')
-    .upsert({ ticker: t, tipo, conta_id: contaId }, { onConflict: 'ticker' })
+    .upsert({ ticker: t, tipo, conta_id: contaId }, { onConflict: 'conta_id,ticker' })
     .select('id').single();
   if (e1) throw e1;
 

@@ -1,12 +1,18 @@
 /**
  * Perfil: quem é o usuário e a partir de quando o app mede.
  *
- * Registro único (`id = 1`). O `marco_zero` é uma restrição de PRODUTO, não de
- * modelo: nada no schema impede gravar 2024, mas nenhuma tela de abertura
- * mostra lançamento anterior a ele. Abrir o passado depois é tela nova, não
- * migração (ADR-004).
+ * Um registro POR USUÁRIO, chaveado por `usuario_id`. Era registro único
+ * (`id = 1`, com `CHECK (id = 1)` no schema) de quando o app tinha um dono
+ * só — o que virou bug de verdade ao existir a segunda conta de login: as
+ * duas liam e sobrescreviam a mesma linha, então nome e marco zero de um
+ * apareciam para o outro. A migração 15 trocou a chave e ligou o RLS.
+ *
+ * O `marco_zero` é uma restrição de PRODUTO, não de modelo: nada no schema
+ * impede gravar 2024, mas nenhuma tela de abertura mostra lançamento anterior
+ * a ele. Abrir o passado depois é tela nova, não migração (ADR-004).
  */
 import { supabase } from './supabase';
+import { exigirLinhas, usuarioAtual } from './dono';
 import type { Conta, TipoConta } from './types';
 
 // A aritmética de calendário vive em ciclo.ts, sem dependência de runtime,
@@ -15,14 +21,21 @@ export { marcoZeroNecessario, proximoVencimento } from './ciclo';
 export type { CicloAberto, MarcoZero } from './ciclo';
 
 export interface Perfil {
-  id: 1;
+  usuario_id: string;
   nome: string | null;
   marco_zero: string;
   onboarding_concluido: boolean;
 }
 
+/**
+ * O filtro por usuário é o RLS, não um `.eq()` aqui.
+ *
+ * A policy de SELECT já reduz a tabela à linha de quem está logado, então
+ * `maybeSingle()` devolve o perfil certo ou nada. Repetir o filtro no
+ * cliente daria a falsa impressão de que é ele quem protege.
+ */
 export async function carregarPerfil(): Promise<Perfil | null> {
-  const { data, error } = await supabase.from('perfil').select('*').eq('id', 1).maybeSingle();
+  const { data, error } = await supabase.from('perfil').select('*').maybeSingle();
   if (error) throw error;
   return (data as Perfil) ?? null;
 }
@@ -37,10 +50,11 @@ export async function carregarPerfil(): Promise<Perfil | null> {
  */
 export async function concluirOnboarding(nome: string, marcoZero: string) {
   const { error } = await supabase.from('perfil').upsert({
-    id: 1, nome: nome.trim() || null,
+    usuario_id: await usuarioAtual(),
+    nome: nome.trim() || null,
     marco_zero: marcoZero,
     onboarding_concluido: true,
-  }, { onConflict: 'id' });
+  }, { onConflict: 'usuario_id' });
   if (error) throw error;
 }
 
@@ -73,7 +87,10 @@ export async function criarConta(c: NovaConta): Promise<ContaConfig> {
     );
   }
 
+  // `usuario_id` explícito: a policy de INSERT exige `= auth.uid()`, e sem
+  // ele o cadastro de conta no onboarding tomava 42501.
   const { data, error } = await supabase.from('contas').insert({
+    usuario_id: await usuarioAtual(),
     nome: c.nome, instituicao: c.instituicao, tipo: c.tipo,
     dia_fechamento: c.dia_fechamento ?? null,
     dia_vencimento: c.dia_vencimento ?? null,
@@ -86,13 +103,15 @@ export async function criarConta(c: NovaConta): Promise<ContaConfig> {
 }
 
 export async function atualizarConta(id: number, campos: Partial<NovaConta>) {
-  const { error } = await supabase.from('contas').update(campos).eq('id', id);
+  const { data, error } = await supabase.from('contas').update(campos).eq('id', id).select('id');
   if (error) throw error;
+  exigirLinhas(data, 'alterar esta conta');
 }
 
 export async function removerConta(id: number) {
-  const { error } = await supabase.from('contas').delete().eq('id', id);
+  const { data, error } = await supabase.from('contas').delete().eq('id', id).select('id');
   if (error) throw error;
+  exigirLinhas(data, 'remover esta conta');
 }
 
 export async function listarContas(): Promise<ContaConfig[]> {
