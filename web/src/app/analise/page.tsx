@@ -9,6 +9,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { explicarErro } from '@/lib/erro';
 import { dinheiro, dataCurta, mesRotulo } from '@/lib/formato';
+import { useOcultarDinheiro } from '@/lib/useOcultarDinheiro';
 import { competenciaRotulo } from '@/lib/competencia';
 import { corrigirCategoria, excluirLancamento, renomear, sugerirPadrao } from '@/lib/aprender';
 import { Marca } from '@/components/Marca';
@@ -57,6 +58,18 @@ const ehCaixinha = (l: Linha) => ehInvestimento(l) && l.metodo !== 'pix';
 /** Entra no "quanto gastei": nem transferência interna, nem dinheiro guardado. */
 const ehGasto = (l: Linha) => !l.eh_interna && !ehInvestimento(l);
 
+/**
+ * Rótulo do eixo Y dos gráficos de barra.
+ *
+ * Não passa por `dinheiro()` — é número abreviado ("12.3k"), sem R$. Por isso
+ * precisa checar a ocultação por conta própria: com os valores escondidos, um
+ * eixo indo até 12.3k entrega o mês inteiro.
+ */
+const eixoValor = (v: number, oculto: boolean): string => {
+  if (oculto) return '';
+  return v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v);
+};
+
 const PALETA = ['#4f46e5', '#0891b2', '#7c3aed', '#db2777', '#ea580c', '#ca8a04', '#0d9488', '#be123c'];
 const CINZA = '#cbd0d8';
 const NOME_SEM_CATEGORIA = 'Não classificado';
@@ -80,6 +93,14 @@ const ABAS: { id: Aba; rotulo: string }[] = [
 ];
 
 export default function Analise() {
+  /**
+   * Inscreve a página no botão de ocultar valores. `dinheiro()` já mascara
+   * sozinho; o que falta sem isto é a re-renderização. `oculto` ainda é usado
+   * direto nos eixos dos gráficos, que mostram número cru ("12.3k") sem
+   * passar por `dinheiro()`.
+   */
+  const { oculto } = useOcultarDinheiro();
+
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [contas, setContas] = useState<Map<number, Conta>>(new Map());
   const [cats, setCats] = useState<Categoria[]>([]);
@@ -530,7 +551,7 @@ export default function Analise() {
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--borda)" vertical={false} />
                     <XAxis dataKey="mes" stroke="var(--suave)" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis stroke="var(--suave)" fontSize={12} tickLine={false} axisLine={false} width={54}
-                           tickFormatter={(v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v))} />
+                           tickFormatter={(v: number) => eixoValor(v, oculto)} />
                     <Tooltip cursor={{ fill: '#f4f5f8' }} formatter={(v: number) => [dinheiro(v), 'Cartão']}
                              contentStyle={caixaTooltip} />
                     <Bar dataKey="cartao" radius={[6, 6, 0, 0]} maxBarSize={56}>
@@ -727,6 +748,8 @@ function Geral({ rotuloMes, gastei, totalCartao, nCartao, totalSaidas, nSaidas,
   mes: string | null;
   onIr: (a: Aba) => void;
 }) {
+  // O eixo do gráfico daqui também mostra número cru; ver `eixoValor`.
+  const { oculto } = useOcultarDinheiro();
   const fatiaCartao = gastei > 0 ? (totalCartao / gastei) * 100 : 0;
   return (
     <div className="space-y-5">
@@ -828,7 +851,7 @@ function Geral({ rotuloMes, gastei, totalCartao, nCartao, totalSaidas, nSaidas,
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--borda)" vertical={false} />
                 <XAxis dataKey="mes" stroke="var(--suave)" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="var(--suave)" fontSize={12} tickLine={false} axisLine={false} width={54}
-                       tickFormatter={(v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v))} />
+                       tickFormatter={(v: number) => eixoValor(v, oculto)} />
                 <Tooltip cursor={{ fill: '#f4f5f8' }} contentStyle={caixaTooltip}
                          formatter={(v: number, n) => [dinheiro(v), n === 'cartao' ? 'Cartão' : 'Pix e boleto']} />
                 <Bar dataKey="cartao" stackId="g" maxBarSize={56}>

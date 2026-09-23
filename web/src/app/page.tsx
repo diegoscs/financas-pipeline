@@ -11,6 +11,7 @@ import {
 import { banco as marcaBanco } from '@/lib/bancos';
 import { Marca, SeloBanco } from '@/components/Marca';
 import { dinheiro, dataCurta } from '@/lib/formato';
+import { useOcultarDinheiro } from '@/lib/useOcultarDinheiro';
 import { competenciaRotulo, opcoesCompetencia } from '@/lib/competencia';
 import type { Categoria } from '@/lib/types';
 
@@ -27,6 +28,10 @@ export default function Importar() {
   const [competencia, setCompetencia] = useState('');
   const [recarregarHistorico, setRecarregarHistorico] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Inscreve a página no botão de ocultar valores: `dinheiro()` já aplica a
+  // máscara, mas sem esta linha nada renderiza de novo quando o botão muda.
+  useOcultarDinheiro();
 
   useEffect(() => {
     (async () => {

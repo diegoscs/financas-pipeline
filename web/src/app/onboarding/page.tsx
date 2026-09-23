@@ -23,6 +23,7 @@ import { Marca } from '@/components/Marca';
 import { listarBancos, rotuloBanco } from '@/lib/bancos';
 import { explicarErro } from '@/lib/erro';
 import { dinheiro } from '@/lib/formato';
+import { useOcultarDinheiro } from '@/lib/useOcultarDinheiro';
 import {
   carregarPerfil, concluirOnboarding, criarConta, listarContas, marcoZeroNecessario,
   proximoVencimento, removerConta, type ContaConfig,
@@ -41,6 +42,10 @@ interface AtivoLinha { id: number; ticker: string; tipo: TipoAtivo; quantidade: 
 
 export default function Onboarding() {
   const router = useRouter();
+
+  // Inscrição no botão de ocultar valores; a máscara é aplicada por dinheiro().
+  useOcultarDinheiro();
+
   const [passo, setPasso] = useState<Passo>(0);
   const [nome, setNome] = useState('');
   const [contas, setContas] = useState<ContaConfig[]>([]);

@@ -1,7 +1,12 @@
+import { estaOculto } from './ocultar';
+
 const BRL = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
 });
+
+/** Máscara de tamanho fixo: o comprimento não pode entregar o valor. */
+const MASCARA = '••••••';
 
 /**
  * `v || 0` normaliza o zero negativo.
@@ -10,7 +15,21 @@ const BRL = new Intl.NumberFormat('pt-BR', {
  * produz -0, e o Intl formata isso como "-R$ 0,00" — que parece diferença onde
  * a conta fechou exata.
  */
-export const dinheiro = (v: number) => BRL.format(v || 0);
+export const dinheiroCru = (v: number) => BRL.format(v || 0);
+
+/**
+ * Formata para a tela, respeitando o botão de ocultar valores.
+ *
+ * A checagem mora aqui, e não em cada tela, porque `dinheiro()` é o único
+ * caminho por onde número vira texto de dinheiro no app — cobrir este ponto
+ * cobre as três páginas de uma vez. Quando estava a cargo de cada tela, só a
+ * Carteira tinha sido convertida, e mesmo lá a metade das chamadas passava
+ * direto.
+ *
+ * Quem chama precisa estar inscrito no estado (`useOcultarDinheiro`) para
+ * renderizar de novo quando o botão muda.
+ */
+export const dinheiro = (v: number) => (estaOculto() ? MASCARA : dinheiroCru(v));
 
 /** Datas vêm como 'YYYY-MM-DD'. Fatiar a string evita o Date/fuso. */
 export function dataCurta(iso: string): string {

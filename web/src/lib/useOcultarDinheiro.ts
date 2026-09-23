@@ -1,40 +1,43 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
+import { alternarOculto, assinar, carregarPreferencia, estaCarregado, estaOculto } from './ocultar';
 
 /**
- * Hook para gerenciar visibilidade de valores.
- * Salva preferência do usuário em localStorage.
+ * Liga o componente ao estado global de ocultar valores.
+ *
+ * Duas responsabilidades:
+ *  1. devolver `oculto` e `toggle` para quem desenha o botão;
+ *  2. RE-RENDERIZAR quem chama quando a preferência muda.
+ *
+ * A (2) é o motivo de páginas que nem usam o valor chamarem este hook: como
+ * `dinheiro()` lê o estado global na hora de formatar, a página precisa
+ * renderizar de novo para os valores trocarem. Sem isso, o clique no botão
+ * só teria efeito na próxima navegação.
+ *
+ * `useSyncExternalStore` com snapshot de servidor fixo em `false` mantém o
+ * HTML do servidor igual ao da primeira renderização do cliente.
  */
 export function useOcultarDinheiro() {
-  const [oculto, setOculto] = useState(false);
-  const [carregado, setCarregado] = useState(false);
+  const oculto = useSyncExternalStore(assinar, estaOculto, () => false);
+  const carregado = useSyncExternalStore(assinar, estaCarregado, () => false);
 
-  // Carregar preferência ao montar
   useEffect(() => {
-    const salvo = localStorage.getItem('ocultarDinheiro');
-    if (salvo !== null) {
-      setOculto(JSON.parse(salvo));
-    }
-    setCarregado(true);
+    carregarPreferencia();
   }, []);
 
-  // Salvar quando muda
-  useEffect(() => {
-    if (carregado) {
-      localStorage.setItem('ocultarDinheiro', JSON.stringify(oculto));
-    }
-  }, [oculto, carregado]);
-
-  const toggle = () => setOculto((v) => !v);
+  const toggle = useCallback(() => alternarOculto(), []);
 
   return { oculto, toggle, carregado };
 }
 
 /**
- * Substituir dinheiro por asteriscos se oculto.
- * Ex: "R$ 1.234,56" vira "••••••••"
+ * Substituir dinheiro por bolinhas se oculto.
+ *
+ * Máscara de tamanho fixo de propósito: repetir uma bolinha por caractere
+ * entregava a ordem de grandeza — dá para ver quem tem quatro dígitos e quem
+ * tem seis olhando de longe, que é exatamente de quem se está escondendo.
  */
+export const MASCARA = '••••••';
+
 export function formatarDinheiro(valor: string, oculto: boolean): string {
-  if (!oculto) return valor;
-  // Contar caracteres e retornar asteriscos
-  return '•'.repeat(Math.max(8, valor.length));
+  return oculto ? MASCARA : valor;
 }

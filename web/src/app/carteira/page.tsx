@@ -45,7 +45,10 @@ interface Movimento {
 }
 
 export default function Carteira() {
-  const { oculto } = useOcultarDinheiro();
+  // Inscrição no botão de ocultar valores. A máscara em si é aplicada dentro
+  // de `dinheiro()` — antes era um wrapper local, que cobria três chamadas e
+  // deixava as outras dezoito passando o valor inteiro.
+  useOcultarDinheiro();
 
   const [ativos, setAtivos] = useState<Ativo[]>([]);
   const [posicoes, setPosicoes] = useState<Posicao[]>([]);
@@ -59,12 +62,6 @@ export default function Carteira() {
   const [carregando, setCarregando] = useState(true);
   const [buscando, setBuscando] = useState(false);
   const [movimentos, setMovimentos] = useState<Movimento[]>([]);
-
-  // Wrapper para dinheiro() que aplica ocultação
-  const din = (valor: number) => {
-    const texto = dinheiro(valor);
-    return oculto ? '•'.repeat(Math.max(8, texto.length)) : texto;
-  };
 
   const carregar = useCallback(async () => {
     try {
@@ -208,7 +205,7 @@ export default function Carteira() {
         <>
           <Resumo valorBolsa={valorTotal} custoTotal={custoTotal} semCotacao={semCotacao}
                   saldoReservas={saldoReservas} reservasSemSaldo={reservasSemSaldo}
-                  rendaPrevista={rendaPrevista} rendimentoReservas={rendimentoReservas} cdi={cdi} oculto={oculto} />
+                  rendaPrevista={rendaPrevista} rendimentoReservas={rendimentoReservas} cdi={cdi} />
 
           {reservas.length > 0 && (
             <Reservas reservas={reservas} saldos={saldos} cdi={cdi} onSalvo={carregar} setErro={setErro} />
@@ -237,28 +234,22 @@ export default function Carteira() {
 // ── resumo ─────────────────────────────────────────────────────────────────
 
 function Resumo({ valorBolsa, custoTotal, semCotacao, saldoReservas, reservasSemSaldo,
-                 rendaPrevista, rendimentoReservas, cdi, oculto }: {
+                 rendaPrevista, rendimentoReservas, cdi }: {
   valorBolsa: number; custoTotal: number; semCotacao: number;
   saldoReservas: number; reservasSemSaldo: number;
-  rendaPrevista: number; rendimentoReservas: number | null; cdi: Cdi | null; oculto: boolean;
+  rendaPrevista: number; rendimentoReservas: number | null; cdi: Cdi | null;
 }) {
   const total = valorBolsa + saldoReservas;
   const ganho = valorBolsa - custoTotal;
   const pct = custoTotal > 0 ? (ganho / custoTotal) * 100 : 0;
   const fatiaBolsa = total > 0 ? (valorBolsa / total) * 100 : 0;
 
-  // Wrapper para dinheiro() que aplica ocultação
-  const din = (valor: number) => {
-    const texto = dinheiro(valor);
-    return oculto ? '•'.repeat(Math.max(8, texto.length)) : texto;
-  };
-
   return (
     <div className="space-y-4">
       <div className="painel-destaque p-6">
         <p className="rotulo">Você tem guardado</p>
         <p className="tabular mt-1 text-[3rem] font-semibold leading-none tracking-tight">
-          {din(total)}
+          {dinheiro(total)}
         </p>
 
         {/* Onde está o dinheiro, antes de o usuário precisar rolar a tela. */}
@@ -273,7 +264,7 @@ function Resumo({ valorBolsa, custoTotal, semCotacao, saldoReservas, reservasSem
                 <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full align-middle"
                       style={{ background: 'var(--acento)' }} />
                 <span style={{ color: 'var(--suave)' }}>Bolsa</span>
-                <span className="tabular ml-2 font-semibold">{din(valorBolsa)}</span>
+                <span className="tabular ml-2 font-semibold">{dinheiro(valorBolsa)}</span>
                 {custoTotal > 0 && (
                   <span className="tabular ml-2" style={{ color: ganho >= 0 ? 'var(--entrada)' : 'var(--negativo)' }}>
                     {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
@@ -284,7 +275,7 @@ function Resumo({ valorBolsa, custoTotal, semCotacao, saldoReservas, reservasSem
                 <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full align-middle"
                       style={{ background: 'var(--entrada)' }} />
                 <span style={{ color: 'var(--suave)' }}>Reserva</span>
-                <span className="tabular ml-2 font-semibold">{din(saldoReservas)}</span>
+                <span className="tabular ml-2 font-semibold">{dinheiro(saldoReservas)}</span>
               </span>
             </div>
           </>
