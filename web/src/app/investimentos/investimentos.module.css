@@ -1,0 +1,415 @@
+/*
+ * Estilo do módulo de investimentos.
+ *
+ * CSS Module: as classes saem com hash, então nada daqui vaza para as telas
+ * de fatura e nada de lá alcança este módulo. Os tokens são declarados aqui
+ * mesmo — com os valores do app, para a aba não destoar do resto, mas sem
+ * depender do globals.css.
+ *
+ * Só tema claro nesta fase: o shell (header e nav) é branco fixo e não
+ * responde a prefers-color-scheme. Um módulo escuro embaixo de um menu branco
+ * mostraria a emenda. O dia em que o app inteiro ganhar modo escuro, os
+ * tokens abaixo ganham o bloco @media e o módulo acompanha.
+ */
+
+.raiz {
+  --inv-painel: #ffffff;
+  --inv-painel-2: #f6f7f9;
+  --inv-borda: #e8eaee;
+  --inv-borda-forte: #d3d7de;
+  --inv-texto: #14161a;
+  --inv-suave: #6b7280;
+  --inv-suave-claro: #9ca3af;
+  --inv-acento: #4f46e5;
+  --inv-acento-fraco: #eef2ff;
+  --inv-pos: #059669;
+  --inv-neg: #e11d48;
+  --inv-grade: #eef0f3;
+
+  /* série de gráfico; a ordem é a ordem das classes em CLASSES */
+  --inv-c1: #4f46e5;
+  --inv-c2: #c07a2b;
+  --inv-c3: #8a4fbf;
+  --inv-c4: #3f7fb4;
+  --inv-c5: #059669;
+  --inv-c6: #e11d48;
+
+  --inv-mono: ui-monospace, 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace;
+
+  color: var(--inv-texto);
+}
+
+/* ── layout ───────────────────────────────────────────────────────────── */
+
+.cabecalho h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 2px;
+}
+.cabecalho p {
+  margin: 0;
+  color: var(--inv-suave);
+  font-size: 0.85rem;
+}
+
+.abas {
+  display: flex;
+  gap: 3px;
+  margin: 18px 0 16px;
+  background: var(--inv-painel-2);
+  padding: 4px;
+  border-radius: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.aba {
+  border: 0;
+  background: transparent;
+  color: var(--inv-suave);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.84rem;
+  padding: 8px 14px;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: 40px;
+}
+.aba[aria-selected='true'] {
+  background: var(--inv-painel);
+  color: var(--inv-texto);
+  box-shadow: 0 1px 3px rgb(16 24 40 / 0.08);
+}
+
+.cartao {
+  background: var(--inv-painel);
+  border: 1px solid var(--inv-borda);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+.cartao h2 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 2px;
+  letter-spacing: -0.01em;
+}
+.sub {
+  font-size: 0.78rem;
+  color: var(--inv-suave);
+  margin: 0 0 14px;
+}
+
+/* ── KPIs ─────────────────────────────────────────────────────────────── */
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.kpi {
+  background: var(--inv-painel);
+  border: 1px solid var(--inv-borda);
+  border-radius: 12px;
+  padding: 13px;
+}
+.kpiRotulo {
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--inv-suave-claro);
+  font-weight: 700;
+}
+.kpiValor {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-family: var(--inv-mono);
+  font-variant-numeric: tabular-nums;
+  margin-top: 3px;
+  letter-spacing: -0.02em;
+}
+.kpiDica {
+  font-size: 0.72rem;
+  color: var(--inv-suave);
+  margin-top: 2px;
+}
+
+/* ── gráficos ─────────────────────────────────────────────────────────── */
+
+.grafico { height: 310px; width: 100%; }
+.graficoAlto { height: 350px; width: 100%; }
+@media (max-width: 640px) {
+  .grafico, .graficoAlto { height: 270px; }
+}
+
+/* ── segmentos / botões ───────────────────────────────────────────────── */
+
+.seg {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.seg button {
+  border: 1px solid var(--inv-borda-forte);
+  background: var(--inv-painel-2);
+  color: var(--inv-suave);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 38px;
+}
+.seg button[aria-pressed='true'] {
+  background: var(--inv-acento-fraco);
+  color: var(--inv-acento);
+  border-color: var(--inv-acento);
+}
+
+.botao {
+  border: 1px solid var(--inv-borda-forte);
+  background: var(--inv-painel);
+  color: var(--inv-texto);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  padding: 9px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 40px;
+}
+.botao:disabled { opacity: 0.5; cursor: not-allowed; }
+.principal {
+  background: var(--inv-acento);
+  border-color: var(--inv-acento);
+  color: #fff;
+}
+.perigo {
+  color: var(--inv-neg);
+  border-color: transparent;
+  background: transparent;
+  text-decoration: underline;
+  padding: 4px 6px;
+  min-height: 32px;
+  font-size: 0.76rem;
+}
+
+.acoes {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.status { font-size: 0.78rem; color: var(--inv-suave); }
+.statusErro { font-size: 0.78rem; color: var(--inv-neg); }
+
+/* ── formulários ──────────────────────────────────────────────────────── */
+
+.campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+.campo { display: block; }
+.campo > span {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--inv-suave-claro);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.campo input,
+.campo select {
+  width: 100%;
+  border: 1px solid var(--inv-borda-forte);
+  border-radius: 8px;
+  background: var(--inv-painel);
+  color: var(--inv-texto);
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 9px 10px;
+  min-height: 40px;
+}
+.campo input[type='number'],
+.campo input[type='month'] {
+  font-family: var(--inv-mono);
+  font-variant-numeric: tabular-nums;
+}
+.campo input:focus,
+.campo select:focus {
+  outline: 2px solid var(--inv-acento);
+  outline-offset: -1px;
+}
+
+/* ── bloco de lançamento por ativo ────────────────────────────────────── */
+
+.blocoAtivo {
+  border: 1px solid var(--inv-borda);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 10px;
+  background: var(--inv-painel-2);
+}
+.blocoTopo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.blocoNome { font-weight: 600; font-size: 0.9rem; }
+.blocoPosicao {
+  font-family: var(--inv-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.etiqueta {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--inv-acento-fraco);
+  color: var(--inv-acento);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* ── tabelas ──────────────────────────────────────────────────────────── */
+
+/*
+ * O scroll é do wrapper, não do body: tabela larga em telefone não pode
+ * empurrar a página inteira para o lado.
+ */
+.tabelaWrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -18px;
+  padding: 0 18px;
+}
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  min-width: 460px;
+}
+.tabela th {
+  text-align: right;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--inv-suave-claro);
+  font-weight: 700;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--inv-borda);
+  white-space: nowrap;
+}
+.tabela th:first-child, .tabela td:first-child { text-align: left; }
+.tabela td {
+  text-align: right;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--inv-borda);
+  font-family: var(--inv-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tabela td:first-child {
+  font-family: inherit;
+  font-weight: 500;
+}
+.tabela tbody tr:last-child td { border-bottom: 0; }
+.linhaMeta { background: #f0fdf4; }
+.linhaMeta td:first-child::after {
+  content: ' ✓';
+  color: var(--inv-pos);
+  font-weight: 700;
+}
+
+.pos { color: var(--inv-pos); }
+.neg { color: var(--inv-neg); }
+.mono {
+  font-family: var(--inv-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── progresso ────────────────────────────────────────────────────────── */
+
+.barra {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--inv-painel-2);
+  border: 1px solid var(--inv-borda);
+  overflow: hidden;
+  margin: 10px 0 6px;
+}
+.barraDentro {
+  height: 100%;
+  background: var(--inv-acento);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.barraLegenda {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.74rem;
+  color: var(--inv-suave);
+}
+
+/* ── vazio ────────────────────────────────────────────────────────────── */
+
+.vazio {
+  text-align: center;
+  padding: 34px 18px;
+  color: var(--inv-suave);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+.vazio strong { color: var(--inv-texto); }
+
+.nota {
+  font-size: 0.76rem;
+  color: var(--inv-suave);
+  line-height: 1.55;
+  margin: 12px 0 0;
+}
+
+/* ── tooltip do Recharts ──────────────────────────────────────────────── */
+
+.tooltip {
+  background: var(--inv-painel);
+  border: 1px solid var(--inv-borda-forte);
+  border-radius: 8px;
+  padding: 9px 11px;
+  box-shadow: 0 4px 12px rgb(16 24 40 / 0.1);
+  font-size: 0.78rem;
+}
+.tooltipTitulo {
+  font-weight: 700;
+  margin-bottom: 5px;
+  font-size: 0.74rem;
+  color: var(--inv-suave);
+}
+.tooltipLinha {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  font-family: var(--inv-mono);
+  font-variant-numeric: tabular-nums;
+}
+.tooltipPonto {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}

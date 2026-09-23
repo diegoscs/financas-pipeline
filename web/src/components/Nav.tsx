@@ -10,6 +10,7 @@ const ITENS = [
   { href: '/', rotulo: 'Importar' },
   { href: '/analise', rotulo: 'Quanto gastei' },
   { href: '/carteira', rotulo: 'Carteira' },
+  { href: '/investimentos', rotulo: 'Investimentos' },
 ];
 
 export function Nav() {

@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Carteira &amp; Reserva</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#f7f6f3; --panel:#fff; --panel-2:#f1efea; --line:#e2ded6;
+  --ink:#1c1b19; --ink-2:#6a665e; --ink-3:#969087;
+  --accent:#1f6f4a; --accent-soft:#e3f0e9;
+  --pos:#1f6f4a; --neg:#b4453f;
+  --c1:#1f6f4a; --c2:#c07a2b; --c3:#8a4fbf; --c4:#3f7fb4; --c5:#b4453f; --c6:#57806e;
+  --grid:#e8e4dc;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#16161a; --panel:#1e1e24; --panel-2:#26262e; --line:#33333d;
+  --ink:#f0eee9; --ink-2:#a9a49c; --ink-3:#7b766e;
+  --accent:#5ec08b; --accent-soft:#1d3a2b;
+  --pos:#5ec08b; --neg:#e07b74;
+  --c1:#5ec08b; --c2:#e0a55c; --c3:#b78ce0; --c4:#6fb0e0; --c5:#e07b74; --c6:#8fb8a6;
+  --grid:#2e2e37;
+}}
+:root[data-theme="dark"]{
+  --bg:#16161a; --panel:#1e1e24; --panel-2:#26262e; --line:#33333d;
+  --ink:#f0eee9; --ink-2:#a9a49c; --ink-3:#7b766e;
+  --accent:#5ec08b; --accent-soft:#1d3a2b; --pos:#5ec08b; --neg:#e07b74;
+  --c1:#5ec08b; --c2:#e0a55c; --c3:#b78ce0; --c4:#6fb0e0; --c5:#e07b74; --c6:#8fb8a6;
+  --grid:#2e2e37;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:22px 14px 64px}
+header h1{font-size:23px;font-weight:700;margin:0 0 3px;letter-spacing:-.02em}
+header p{margin:0;color:var(--ink-2);font-size:13.5px}
+.tabs{display:flex;gap:3px;margin:18px 0 16px;background:var(--panel-2);padding:4px;border-radius:10px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tab{border:0;background:transparent;color:var(--ink-2);font:inherit;font-weight:600;font-size:13.5px;padding:8px 14px;border-radius:7px;cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{background:var(--panel);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+.card h2{font-size:15px;font-weight:700;margin:0 0 2px;letter-spacing:-.01em}
+.card .sub{font-size:12.5px;color:var(--ink-2);margin:0 0 14px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px}
+.kpi .lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);font-weight:700}
+.kpi .val{font-size:20px;font-weight:700;font-family:"JetBrains Mono",monospace;margin-top:3px;letter-spacing:-.02em}
+.kpi .hint{font-size:11.5px;color:var(--ink-2);margin-top:2px}
+.chartbox{position:relative;height:310px}
+.chartbox.tall{height:350px}
+@media(max-width:640px){.chartbox,.chartbox.tall{height:270px}}
+.seg{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px}
+.seg button{border:1px solid var(--line);background:var(--panel-2);color:var(--ink-2);font:inherit;font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+label.field{display:block;font-size:11.5px;font-weight:600;color:var(--ink-2);margin-bottom:10px}
+label.field span{display:block;margin-bottom:4px}
+input,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2);color:var(--ink);font:inherit;font-size:14px;font-family:"JetBrains Mono",monospace}
+select{font-family:Inter,sans-serif}
+input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
+button.primary{background:var(--accent);color:#fff;border:0;font:inherit;font-weight:600;font-size:14px;padding:9px 18px;border-radius:9px;cursor:pointer}
+button.ghost{background:transparent;color:var(--ink-2);border:1px solid var(--line);font:inherit;font-weight:600;font-size:13px;padding:8px 14px;border-radius:9px;cursor:pointer}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:13px}
+table.wide{min-width:720px}
+th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);font-weight:700}
+td:first-child,th:first-child{text-align:left;font-weight:600}
+td.num{font-family:"JetBrains Mono",monospace}
+.pos{color:var(--pos)} .neg{color:var(--neg)}
+tr.milestone td{background:var(--accent-soft)}
+.bar{height:9px;background:var(--panel-2);border-radius:99px;overflow:hidden;margin-top:8px}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .4s}
+.note{font-size:12.5px;color:var(--ink-2);line-height:1.55}
+.status{font-size:12px;color:var(--ink-3);margin-top:10px;min-height:16px}
+.hidden{display:none}
+.row-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.del{border:0;background:transparent;color:var(--neg);cursor:pointer;font:inherit;font-size:12px;font-weight:600}
+.lanc{border:1px solid var(--line);border-radius:11px;padding:13px;margin-bottom:10px;background:var(--panel-2)}
+.lanc h3{margin:0 0 3px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.chip{font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:var(--panel);color:var(--ink-2);text-transform:uppercase;letter-spacing:.04em}
+.lanc .flds{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:9px;margin-top:9px}
+.lanc .flds label{margin:0}
+.calc{font-size:12px;color:var(--ink-2);margin-top:8px;font-family:"JetBrains Mono",monospace}
+.empty{font-size:13px;color:var(--ink-3);padding:6px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Carteira &amp; Reserva</h1>
+  <p>Lançamento manual mensal · rentabilidade real · projeção de cenários</p>
+</header>
+
+<div class="tabs" role="tablist">
+  <button class="tab" role="tab" aria-selected="true" data-tab="visao">Visão geral</button>
+  <button class="tab" role="tab" aria-selected="false" data-tab="lanc">Lançar mês</button>
+  <button class="tab" role="tab" aria-selected="false" data-tab="rent">Rentabilidade</button>
+  <button class="tab" role="tab" aria-selected="false" data-tab="proj">Projeção</button>
+  <button class="tab" role="tab" aria-selected="false" data-tab="cfg">Ativos &amp; premissas</button>
+</div>
+
+<!-- ================ VISÃO GERAL ================ -->
+<section id="tab-visao">
+  <div class="kpis" id="kpisVisao"></div>
+  <div class="card">
+    <h2>Patrimônio e reserva</h2>
+    <p class="sub">Linha cheia = realizado · tracejada = projeção conservadora · pontilhadas = metas de reserva</p>
+    <div class="chartbox tall"><canvas id="chPat"></canvas></div>
+    <div class="bar"><i id="barFill" style="width:0%"></i></div>
+    <p class="note" id="progTxt" style="margin-top:8px"></p>
+  </div>
+  <div class="card">
+    <h2>Composição por classe</h2>
+    <p class="sub">Como a carteira se distribui a cada fechamento</p>
+    <div class="seg" id="segComp">
+      <button data-comp="valor" aria-pressed="true">Em reais</button>
+      <button data-comp="pct" aria-pressed="false">Em %</button>
+    </div>
+    <div class="chartbox"><canvas id="chComp"></canvas></div>
+  </div>
+  <div class="card">
+    <h2>Aportes por ativo</h2>
+    <p class="sub">Quanto entrou em cada ativo, mês a mês</p>
+    <div class="chartbox"><canvas id="chAportes"></canvas></div>
+  </div>
+</section>
+
+<!-- ================ LANÇAR ================ -->
+<section id="tab-lanc" class="hidden">
+  <div class="card">
+    <h2>Fechamento do mês</h2>
+    <p class="sub">Um lançamento por mês. Preencha o que aportou e como o ativo fechou.</p>
+    <div class="grid2" style="max-width:340px">
+      <label class="field"><span>Competência</span><input type="month" id="inComp"></label>
+    </div>
+    <div id="formAtivos"></div>
+    <div class="row-actions">
+      <button class="primary" id="btnSave">Salvar fechamento</button>
+      <button class="ghost" id="btnCarregar">Carregar mês</button>
+      <span class="status" id="saveStatus"></span>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Lançamentos registrados</h2>
+    <div class="tablewrap"><table class="wide" id="tblLanc"></table></div>
+    <p class="empty" id="lancEmpty">Nenhum fechamento lançado ainda.</p>
+  </div>
+</section>
+
+<!-- ================ RENTABILIDADE ================ -->
+<section id="tab-rent" class="hidden">
+  <div class="kpis" id="kpisRent"></div>
+  <div class="card">
+    <h2>Aportado × rendimento acumulado</h2>
+    <p class="sub">Rendimento real = fechamento − saldo anterior − aporte. Não é estimativa.</p>
+    <div class="chartbox"><canvas id="chSplit"></canvas></div>
+  </div>
+  <div class="card">
+    <h2>Rentabilidade mensal por classe</h2>
+    <p class="sub">% no mês sobre o saldo médio — dá pra comparar renda fixa e variável de igual pra igual</p>
+    <div class="chartbox"><canvas id="chRentPct"></canvas></div>
+  </div>
+  <div class="card">
+    <h2>Rendimento por ativo</h2>
+    <div class="tablewrap"><table class="wide" id="tblRent"></table></div>
+    <p class="empty" id="rentEmpty">Lance pelo menos dois meses para calcular rendimento.</p>
+  </div>
+</section>
+
+<!-- ================ PROJEÇÃO ================ -->
+<section id="tab-proj" class="hidden">
+  <div class="card">
+    <h2>Cenários até dez/2027</h2>
+    <p class="sub">Parte da posição real mais recente e projeta os aportes futuros</p>
+    <div class="seg" id="segCen"></div>
+    <div class="chartbox tall"><canvas id="chCen"></canvas></div>
+  </div>
+  <div class="card">
+    <h2>Meses de custo cobertos</h2>
+    <p class="sub">O que a reserva realmente mede: tempo sem renda, não valor</p>
+    <div class="chartbox"><canvas id="chMeses"></canvas></div>
+  </div>
+  <div class="card">
+    <h2>Detalhamento mês a mês</h2>
+    <div class="tablewrap"><table class="wide" id="tblProj"></table></div>
+  </div>
+</section>
+
+<!-- ================ CONFIG ================ -->
+<section id="tab-cfg" class="hidden">
+  <div class="card">
+    <h2>Ativos</h2>
+    <p class="sub">Cotizado = você lança cotas e preço · Saldo = você lança o valor direto</p>
+    <div class="tablewrap"><table id="tblAtivos"></table></div>
+    <div class="grid2" style="margin-top:14px">
+      <label class="field"><span>Nome</span><input type="text" id="aNome" placeholder="Tesouro Selic 2029"></label>
+      <label class="field"><span>Classe</span><select id="aClasse">
+        <option value="renda_fixa">Renda fixa</option><option value="fii">FII</option>
+        <option value="acao">Ação / ETF</option><option value="cripto">Cripto</option>
+      </select></label>
+      <label class="field"><span>Modo de lançamento</span><select id="aModo">
+        <option value="saldo">Saldo</option><option value="cotizado">Cotizado</option>
+      </select></label>
+    </div>
+    <div class="row-actions"><button class="primary" id="btnAtivo">Adicionar ativo</button>
+      <span class="status" id="ativoStatus"></span></div>
+  </div>
+  <div class="card">
+    <h2>Premissas da projeção</h2>
+    <div class="grid2">
+      <label class="field"><span>Gasto mensal (R$)</span><input type="number" id="pGasto" step="50"></label>
+      <label class="field"><span>Líquido mensal 2026 (R$)</span><input type="number" id="pLiq26" step="50"></label>
+      <label class="field"><span>Líquido mensal 2027 (R$)</span><input type="number" id="pLiq27" step="50"></label>
+      <label class="field"><span>CDI 2026 (% a.a.)</span><input type="number" id="pCdi26" step="0.05"></label>
+      <label class="field"><span>CDI 2027 (% a.a.)</span><input type="number" id="pCdi27" step="0.05"></label>
+      <label class="field"><span>IR médio renda fixa (%)</span><input type="number" id="pIR" step="0.5"></label>
+      <label class="field"><span>Dividendo FII (% mês)</span><input type="number" id="pDiv" step="0.05"></label>
+      <label class="field"><span>Valorização cota (% mês)</span><input type="number" id="pVar" step="0.05"></label>
+      <label class="field"><span>Retorno ações (% mês)</span><input type="number" id="pAcoes" step="0.05"></label>
+    </div>
+    <div class="row-actions"><button class="primary" id="btnPrem">Salvar premissas</button>
+      <span class="status" id="premStatus"></span></div>
+    <p class="note" style="margin-top:12px"><strong>13º incluído:</strong> 2026 → R$ 1.625 (nov) + R$ 1.346 (dez) ·
+      2027 → R$ 2.000 (nov) + R$ 1.631 (dez). Férias + 1/3 fora da conta.</p>
+  </div>
+</section>
+</div>
+
+<script>
+/* ============ estado ============ */
+const DEF_PREM = {gasto:1700, liq26:2750, liq27:3360, cdi26:13.65, cdi27:12.30,
+                  ir:20, div:1.0, varCota:0.3, acoes:1.1};
+const DEF_ATIVOS = [
+  {id:"caixinha_nubank", nome:"Caixinha Nubank", classe:"renda_fixa", modo:"saldo"},
+  {id:"mxrf11", nome:"MXRF11", classe:"fii", modo:"cotizado"}
+];
+const CLASSES = {renda_fixa:{nome:"Renda fixa",cor:"--c1"}, fii:{nome:"FII",cor:"--c2"},
+                 acao:{nome:"Ação / ETF",cor:"--c3"}, cripto:{nome:"Cripto",cor:"--c4"}};
+let P = {...DEF_PREM}, ativos = [...DEF_ATIVOS], lanc = {}, db = null;
+let cenAtual = "Conservador", modoComp = "valor";
+
+const MESES=["out/26","nov/26","dez/26","jan/27","fev/27","mar/27","abr/27","mai/27",
+             "jun/27","jul/27","ago/27","set/27","out/27","nov/27","dez/27"];
+const KEYS=["2026-10","2026-11","2026-12","2027-01","2027-02","2027-03","2027-04","2027-05",
+            "2027-06","2027-07","2027-08","2027-09","2027-10","2027-11","2027-12"];
+const DEC13={"nov/26":1625,"dez/26":1346,"nov/27":2000,"dez/27":1631};
+const CENARIOS={
+  Conservador:{renda_fixa:1,fii:0,acao:0,label:"Conservador · 100% RF"},
+  Misto:{renda_fixa:.5,fii:.3,acao:.2,label:"Misto · 50/30/20"},
+  Arrojado:{renda_fixa:.2,fii:.3,acao:.5,label:"Arrojado · 20/30/50"}
+};
+
+const brl=v=>"R$ "+(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const brl0=v=>"R$ "+(v||0).toLocaleString("pt-BR",{maximumFractionDigits:0});
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const slug=s=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"").slice(0,40);
+const compsOrd=()=>Object.keys(lanc).sort();
+const rotulo=k=>{const i=KEYS.indexOf(k); return i>=0?MESES[i]:k;};
+
+/* saldo de um item lançado */
+function saldoItem(at, it){
+  if(!it) return 0;
+  return at.modo==="cotizado" ? (it.cotas||0)*(it.preco||0) : (it.saldo||0);
+}
+/* série de posições por competência */
+function posicoes(){
+  return compsOrd().map(c=>{
+    const reg = lanc[c], porAtivo = {}, porClasse = {};
+    let total=0, aporte=0;
+    ativos.forEach(a=>{
+      const it = reg.itens[a.id];
+      const s = saldoItem(a, it);
+      porAtivo[a.id] = {saldo:s, aporte:(it&&it.aporte)||0, cotas:(it&&it.cotas)||0};
+      porClasse[a.classe] = (porClasse[a.classe]||0) + s;
+      total += s; aporte += (it&&it.aporte)||0;
+    });
+    return {comp:c, porAtivo, porClasse, total, aporte};
+  });
+}
+
+/* ============ gráficos ============ */
+let charts={};
+const mk=(id,cfg)=>{const el=document.getElementById(id); if(!el)return;
+  if(charts[id])charts[id].destroy(); charts[id]=new Chart(el,cfg);};
+const opts=(fmt)=>({responsive:true,maintainAspectRatio:false,
+  interaction:{mode:"index",intersect:false},
+  plugins:{legend:{labels:{color:css("--ink-2"),usePointStyle:true,pointStyle:"circle",boxWidth:10,font:{size:11.5}}},
+    tooltip:{callbacks:{label:c=>` ${c.dataset.label}: `+(fmt==="pct"?c.parsed.y.toFixed(2)+"%":brl(c.parsed.y))}}},
+  scales:{x:{grid:{color:css("--grid")},ticks:{color:css("--ink-3"),font:{size:11},maxRotation:0,autoSkipPadding:10}},
+    y:{grid:{color:css("--grid")},ticks:{color:css("--ink-3"),font:{size:11},
+      callback:v=>fmt==="pct"?v.toFixed(1)+"%":"R$ "+(v/1000).toFixed(0)+"k"}}}});
+
+/* ============ projeção ============ */
+function simular(cen, base){
+  const a=CENARIOS[cen];
+  let rf=base.renda_fixa||0, fii=base.fii||0, ac=base.acao||0;
+  let aportado=rf+fii+ac;
+  const startIdx = base.idx!==undefined ? base.idx : 0;
+  const out=[];
+  MESES.forEach((m,i)=>{
+    if(i<startIdx){ out.push(null); return; }
+    const antes=rf+fii+ac;
+    const aa=(m.endsWith("26")?P.cdi26:P.cdi27)/100;
+    rf  *= 1 + (Math.pow(1+aa,1/12)-1)*(1-P.ir/100);
+    fii *= 1 + P.div/100 + P.varCota/100;
+    ac  *= 1 + P.acoes/100;
+    const rend=(rf+fii+ac)-antes;
+    const ap=((m.endsWith("26")?P.liq26:P.liq27)-P.gasto)+(DEC13[m]||0);
+    rf+=ap*a.renda_fixa; fii+=ap*a.fii; ac+=ap*a.acao; aportado+=ap;
+    const total=rf+fii+ac;
+    out.push({mes:m,aporte:ap,rend,rf,fii,ac,total,aportado,juros:total-aportado,meses:total/P.gasto});
+  });
+  return out;
+}
+function baseProjecao(){
+  const pos=posicoes();
+  if(!pos.length) return {renda_fixa:0,fii:0,acao:0,idx:0};
+  const u=pos[pos.length-1];
+  const i=KEYS.indexOf(u.comp);
+  return {renda_fixa:u.porClasse.renda_fixa||0, fii:u.porClasse.fii||0,
+          acao:(u.porClasse.acao||0)+(u.porClasse.cripto||0), idx:Math.max(0,i+1)};
+}
+
+/* ============ render ============ */
+function render(){ renderVisao(); renderLanc(); renderRent(); renderProj(); renderCfg(); }
+
+function renderVisao(){
+  const pos=posicoes(), meta6=P.gasto*6, meta12=P.gasto*12;
+  const atual=pos.length?pos[pos.length-1].total:0;
+  const aportadoTot=pos.reduce((s,p)=>s+p.aporte,0);
+  const base=baseProjecao();
+  const proj=simular("Conservador",base);
+
+  document.getElementById("kpisVisao").innerHTML=[
+    ["Patrimônio",brl0(atual),pos.length?"fech. "+rotulo(pos[pos.length-1].comp):"sem lançamentos"],
+    ["Meses cobertos",(atual/P.gasto).toFixed(1),"de R$ "+P.gasto.toLocaleString("pt-BR")],
+    ["Aportado no período",brl0(aportadoTot),pos.length+" mês(es)"],
+    ["Falta p/ 6 meses",brl0(Math.max(0,meta6-atual)),atual>=meta6?"meta batida ✓":brl0(meta6)],
+    ["Falta p/ 12 meses",brl0(Math.max(0,meta12-atual)),atual>=meta12?"meta batida ✓":brl0(meta12)]
+  ].map(([l,v,h])=>`<div class="kpi"><div class="lbl">${l}</div><div class="val">${v}</div><div class="hint">${h}</div></div>`).join("");
+
+  const pct=meta6?Math.min(100,atual/meta6*100):0;
+  document.getElementById("barFill").style.width=pct.toFixed(1)+"%";
+  document.getElementById("progTxt").textContent=
+    `${brl0(atual)} de ${brl0(meta6)} — ${pct.toFixed(0)}% da reserva de 6 meses.`;
+
+  const real=KEYS.map(k=>{const p=pos.find(x=>x.comp===k); return p?p.total:null;});
+  mk("chPat",{type:"line",data:{labels:MESES,datasets:[
+    {label:"Realizado",data:real,borderColor:css("--c1"),backgroundColor:css("--c1")+"22",
+      borderWidth:3,tension:.3,pointRadius:4,spanGaps:true,fill:true},
+    {label:"Projetado",data:proj.map(p=>p?p.total:null),borderColor:css("--ink-3"),
+      borderDash:[6,4],borderWidth:1.6,tension:.3,pointRadius:0,spanGaps:true},
+    {label:"Meta 6 meses",data:MESES.map(()=>meta6),borderColor:css("--c2"),borderDash:[3,3],borderWidth:1.2,pointRadius:0},
+    {label:"Meta 12 meses",data:MESES.map(()=>meta12),borderColor:css("--c5"),borderDash:[2,5],borderWidth:1.2,pointRadius:0}
+  ]},options:opts()});
+
+  const labels=pos.map(p=>rotulo(p.comp));
+  const clsUsadas=Object.keys(CLASSES).filter(c=>pos.some(p=>(p.porClasse[c]||0)>0));
+  const o=opts(modoComp==="pct"?"pct":undefined);
+  o.scales.x.stacked=true; o.scales.y.stacked=true;
+  if(modoComp==="pct"){o.scales.y.max=100;}
+  mk("chComp",{type:"bar",data:{labels,datasets:clsUsadas.map(c=>({
+    label:CLASSES[c].nome,backgroundColor:css(CLASSES[c].cor),
+    data:pos.map(p=>{const v=p.porClasse[c]||0; return modoComp==="pct"?(p.total?v/p.total*100:0):v;})
+  }))},options:o});
+
+  const cores=["--c1","--c2","--c3","--c4","--c5","--c6"];
+  const o2=opts(); o2.scales.x.stacked=true; o2.scales.y.stacked=true;
+  mk("chAportes",{type:"bar",data:{labels,datasets:ativos.map((a,i)=>({
+    label:a.nome,backgroundColor:css(cores[i%cores.length]),
+    data:pos.map(p=>p.porAtivo[a.id]?p.porAtivo[a.id].aporte:0)
+  }))},options:o2});
+}
+
+function renderLanc(){
+  const comp=document.getElementById("inComp").value;
+  const reg=lanc[comp];
+  document.getElementById("formAtivos").innerHTML=ativos.map(a=>{
+    const it=(reg&&reg.itens[a.id])||{};
+    const cotiz=a.modo==="cotizado";
+    return `<div class="lanc" data-ativo="${a.id}">
+      <h3>${a.nome} <span class="chip">${CLASSES[a.classe].nome}</span>
+        <span class="chip">${cotiz?"cotizado":"saldo"}</span></h3>
+      <div class="flds">
+        <label class="field"><span>Aportei no mês (R$)</span>
+          <input type="number" step="0.01" data-f="aporte" value="${it.aporte??""}"></label>
+        ${cotiz?`
+        <label class="field"><span>Total de cotas</span>
+          <input type="number" step="1" data-f="cotas" value="${it.cotas??""}"></label>
+        <label class="field"><span>Preço da cota (R$)</span>
+          <input type="number" step="0.01" data-f="preco" value="${it.preco??""}"></label>`
+        :`<label class="field"><span>Saldo no fim do mês (R$)</span>
+          <input type="number" step="0.01" data-f="saldo" value="${it.saldo??""}"></label>`}
+      </div>
+      <div class="calc" data-calc>—</div></div>`;
+  }).join("");
+  document.querySelectorAll("#formAtivos .lanc").forEach(box=>{
+    const upd=()=>{
+      const a=ativos.find(x=>x.id===box.dataset.ativo);
+      const g=f=>parseFloat((box.querySelector(`[data-f="${f}"]`)||{}).value)||0;
+      const s=a.modo==="cotizado"?g("cotas")*g("preco"):g("saldo");
+      box.querySelector("[data-calc]").textContent="Posição: "+brl(s);
+    };
+    box.querySelectorAll("input").forEach(i=>i.addEventListener("input",upd));
+    upd();
+  });
+
+  const pos=posicoes();
+  document.getElementById("lancEmpty").style.display=pos.length?"none":"block";
+  const t=document.getElementById("tblLanc");
+  if(!pos.length){t.innerHTML="";return;}
+  let h=`<thead><tr><th>Mês</th>${ativos.map(a=>`<th>${a.nome}</th>`).join("")}
+    <th>Aporte</th><th>Total</th><th></th></tr></thead><tbody>`;
+  pos.forEach(p=>{
+    h+=`<tr><td>${rotulo(p.comp)}</td>`+
+      ativos.map(a=>`<td class="num">${brl0(p.porAtivo[a.id].saldo)}</td>`).join("")+
+      `<td class="num">${brl0(p.aporte)}</td><td class="num"><strong>${brl0(p.total)}</strong></td>
+       <td><button class="del" data-del="${p.comp}">remover</button></td></tr>`;
+  });
+  t.innerHTML=h+"</tbody>";
+  t.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+    delete lanc[b.dataset.del]; persistir("Lançamento removido."); render();
+  });
+}
+
+function rendimentos(){
+  const pos=posicoes(); const out=[];
+  for(let i=1;i<pos.length;i++){
+    const ant=pos[i-1], cur=pos[i];
+    const porAtivo={}, porClasse={};
+    let tot=0, base=0;
+    ativos.forEach(a=>{
+      const s0=ant.porAtivo[a.id].saldo, s1=cur.porAtivo[a.id].saldo, ap=cur.porAtivo[a.id].aporte;
+      const r=s1-s0-ap;
+      porAtivo[a.id]={rend:r, base:s0+ap/2, pct:(s0+ap/2)>0?r/(s0+ap/2)*100:0};
+      porClasse[a.classe]=porClasse[a.classe]||{rend:0,base:0};
+      porClasse[a.classe].rend+=r; porClasse[a.classe].base+=s0+ap/2;
+      tot+=r; base+=s0+ap/2;
+    });
+    Object.values(porClasse).forEach(c=>c.pct=c.base>0?c.rend/c.base*100:0);
+    out.push({comp:cur.comp, porAtivo, porClasse, rend:tot, pct:base>0?tot/base*100:0});
+  }
+  return out;
+}
+
+function renderRent(){
+  const pos=posicoes(), rend=rendimentos();
+  const totalRend=rend.reduce((s,r)=>s+r.rend,0);
+  const atual=pos.length?pos[pos.length-1].total:0;
+  const aportadoTot=(pos.length?pos[0].total:0)+pos.slice(1).reduce((s,p)=>s+p.aporte,0);
+  const mediaPct=rend.length?rend.reduce((s,r)=>s+r.pct,0)/rend.length:0;
+
+  document.getElementById("kpisRent").innerHTML=[
+    ["Rendimento acumulado",brl0(totalRend),rend.length+" mês(es) medido(s)"],
+    ["Média mensal",mediaPct.toFixed(2)+"%","sobre saldo médio"],
+    ["Equivalente ao ano",(Math.pow(1+mediaPct/100,12)-1<0?"-":"")+((Math.pow(1+mediaPct/100,12)-1)*100).toFixed(1)+"%","se o ritmo se mantiver"],
+    ["% do patrimônio",atual?(totalRend/atual*100).toFixed(1)+"%":"—","veio de rendimento"]
+  ].map(([l,v,h])=>`<div class="kpi"><div class="lbl">${l}</div><div class="val">${v}</div><div class="hint">${h}</div></div>`).join("");
+
+  let acAp=pos.length?pos[0].total:0, acRe=0;
+  const labels=[], sAp=[], sRe=[];
+  pos.forEach((p,i)=>{
+    if(i>0){ acAp+=p.aporte; acRe+=rend[i-1].rend; }
+    labels.push(rotulo(p.comp)); sAp.push(acAp); sRe.push(acRe);
+  });
+  const o=opts(); o.scales.x.stacked=true; o.scales.y.stacked=true;
+  mk("chSplit",{type:"bar",data:{labels,datasets:[
+    {label:"Aportado",data:sAp,backgroundColor:css("--c1")},
+    {label:"Rendimento",data:sRe,backgroundColor:css("--c2")}
+  ]},options:o});
+
+  const clsUsadas=Object.keys(CLASSES).filter(c=>rend.some(r=>r.porClasse[c]));
+  mk("chRentPct",{type:"line",data:{labels:rend.map(r=>rotulo(r.comp)),datasets:[
+    ...clsUsadas.map(c=>({label:CLASSES[c].nome,borderColor:css(CLASSES[c].cor),
+      backgroundColor:css(CLASSES[c].cor),data:rend.map(r=>r.porClasse[c]?r.porClasse[c].pct:0),
+      borderWidth:2,tension:.3,pointRadius:3})),
+    {label:"Carteira",borderColor:css("--ink-2"),backgroundColor:css("--ink-2"),
+      data:rend.map(r=>r.pct),borderWidth:2.5,borderDash:[5,3],tension:.3,pointRadius:0}
+  ]},options:opts("pct")});
+
+  document.getElementById("rentEmpty").style.display=rend.length?"none":"block";
+  const t=document.getElementById("tblRent");
+  if(!rend.length){t.innerHTML="";return;}
+  let h=`<thead><tr><th>Mês</th>${ativos.map(a=>`<th>${a.nome}</th>`).join("")}<th>Total</th><th>%</th></tr></thead><tbody>`;
+  rend.forEach(r=>{
+    h+=`<tr><td>${rotulo(r.comp)}</td>`+ativos.map(a=>{
+      const x=r.porAtivo[a.id];
+      return `<td class="num ${x.rend>=0?"pos":"neg"}">${brl0(x.rend)}<br><span style="font-size:11px;opacity:.7">${x.pct.toFixed(2)}%</span></td>`;
+    }).join("")+
+    `<td class="num ${r.rend>=0?"pos":"neg"}"><strong>${brl0(r.rend)}</strong></td>
+     <td class="num ${r.pct>=0?"pos":"neg"}">${r.pct.toFixed(2)}%</td></tr>`;
+  });
+  t.innerHTML=h+"</tbody>";
+}
+
+function renderProj(){
+  const base=baseProjecao();
+  const sims={}; Object.keys(CENARIOS).forEach(c=>sims[c]=simular(c,base));
+  const S=sims[cenAtual], meta6=P.gasto*6, meta12=P.gasto*12;
+  const cores=["--c1","--c2","--c3"];
+
+  document.getElementById("segCen").innerHTML=Object.keys(CENARIOS).map(c=>
+    `<button data-cen="${c}" aria-pressed="${c===cenAtual}">${CENARIOS[c].label}</button>`).join("");
+  document.querySelectorAll("#segCen [data-cen]").forEach(b=>b.onclick=()=>{
+    cenAtual=b.dataset.cen; renderProj();
+  });
+
+  mk("chCen",{type:"line",data:{labels:MESES,datasets:[
+    ...Object.keys(CENARIOS).map((c,i)=>({label:c,data:sims[c].map(x=>x?x.total:null),
+      borderColor:css(cores[i]),backgroundColor:css(cores[i]),
+      borderWidth:c===cenAtual?3:1.6,tension:.3,pointRadius:0,spanGaps:true})),
+    {label:"Meta 6 meses",data:MESES.map(()=>meta6),borderColor:css("--ink-3"),borderDash:[5,5],borderWidth:1.2,pointRadius:0},
+    {label:"Meta 12 meses",data:MESES.map(()=>meta12),borderColor:css("--ink-3"),borderDash:[2,4],borderWidth:1.2,pointRadius:0}
+  ]},options:opts()});
+
+  const om=opts(); om.scales.y.ticks.callback=v=>v.toFixed(0)+" m";
+  om.plugins.tooltip.callbacks.label=c=>` ${c.dataset.label}: ${c.parsed.y.toFixed(1)} meses`;
+  mk("chMeses",{type:"line",data:{labels:MESES,datasets:Object.keys(CENARIOS).map((c,i)=>({
+    label:c,data:sims[c].map(x=>x?x.meses:null),borderColor:css(cores[i]),
+    backgroundColor:css(cores[i])+"22",borderWidth:c===cenAtual?3:1.5,
+    tension:.3,pointRadius:0,spanGaps:true,fill:c===cenAtual}))},options:om});
+
+  let h=`<thead><tr><th>Mês</th><th>Aporte</th><th>Rendimento</th><th>Renda fixa</th>
+    <th>FII</th><th>Ações</th><th>Total</th><th>Meses</th></tr></thead><tbody>`;
+  let h6=false,h12=false;
+  S.forEach(l=>{
+    if(!l) return;
+    let cls="";
+    if(!h6&&l.total>=meta6){cls="milestone";h6=true;}
+    else if(!h12&&l.total>=meta12){cls="milestone";h12=true;}
+    h+=`<tr class="${cls}"><td>${l.mes}</td><td class="num">${brl0(l.aporte)}</td>
+      <td class="num">${brl0(l.rend)}</td><td class="num">${brl0(l.rf)}</td>
+      <td class="num">${brl0(l.fii)}</td><td class="num">${brl0(l.ac)}</td>
+      <td class="num"><strong>${brl0(l.total)}</strong></td><td class="num">${l.meses.toFixed(1)}</td></tr>`;
+  });
+  document.getElementById("tblProj").innerHTML=h+"</tbody>";
+}
+
+function renderCfg(){
+  let h=`<thead><tr><th>Ativo</th><th>Classe</th><th>Modo</th><th></th></tr></thead><tbody>`;
+  ativos.forEach(a=>{
+    h+=`<tr><td>${a.nome}</td><td>${CLASSES[a.classe].nome}</td><td>${a.modo}</td>
+      <td><button class="del" data-rm="${a.id}">remover</button></td></tr>`;
+  });
+  const t=document.getElementById("tblAtivos");
+  t.innerHTML=h+"</tbody>";
+  t.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{
+    if(ativos.length<=1) return;
+    ativos=ativos.filter(a=>a.id!==b.dataset.rm);
+    persistir("Ativo removido."); render();
+  });
+  const m={pGasto:"gasto",pLiq26:"liq26",pLiq27:"liq27",pCdi26:"cdi26",pCdi27:"cdi27",
+           pIR:"ir",pDiv:"div",pVar:"varCota",pAcoes:"acoes"};
+  Object.entries(m).forEach(([id,k])=>{const el=document.getElementById(id); if(el)el.value=P[k];});
+}
+
+/* ============ persistência ============ */
+async function persistir(msg,alvo){
+  const el=document.getElementById(alvo||"saveStatus");
+  if(!db){ if(el){el.textContent="Salvo só nesta sessão.";} return; }
+  try{
+    await db.doc("carteira/state").set({premissas:P,ativos,lancamentos:lanc,
+      atualizado:new Date().toISOString()});
+    if(el) el.textContent=msg||"Salvo.";
+  }catch(e){ if(el) el.textContent="Não consegui salvar ("+(e.code||"erro")+")."; }
+  if(el) setTimeout(()=>{el.textContent="";},4000);
+}
+async function carregar(){
+  try{ db=await claude.use("db"); }catch(e){ db=null; }
+  if(!db) return;
+  try{
+    const s=await db.doc("carteira/state").get();
+    if(s.exists){
+      const d=s.data();
+      if(d.premissas) P={...DEF_PREM,...d.premissas};
+      if(Array.isArray(d.ativos)&&d.ativos.length) ativos=d.ativos;
+      if(d.lancamentos&&typeof d.lancamentos==="object") lanc=d.lancamentos;
+      render();
+    }
+  }catch(e){}
+}
+
+/* ============ eventos ============ */
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",x===t));
+  ["visao","lanc","rent","proj","cfg"].forEach(n=>
+    document.getElementById("tab-"+n).classList.toggle("hidden",n!==t.dataset.tab));
+});
+document.querySelectorAll("#segComp [data-comp]").forEach(b=>b.onclick=()=>{
+  modoComp=b.dataset.comp;
+  document.querySelectorAll("#segComp [data-comp]").forEach(x=>x.setAttribute("aria-pressed",x===b));
+  renderVisao();
+});
+document.getElementById("inComp").addEventListener("change",renderLanc);
+document.getElementById("btnCarregar").onclick=renderLanc;
+
+document.getElementById("btnSave").onclick=()=>{
+  const comp=document.getElementById("inComp").value;
+  if(!comp){document.getElementById("saveStatus").textContent="Escolha a competência.";return;}
+  const itens={};
+  document.querySelectorAll("#formAtivos .lanc").forEach(box=>{
+    const id=box.dataset.ativo, o={};
+    box.querySelectorAll("input[data-f]").forEach(i=>{
+      const v=parseFloat(i.value);
+      if(!isNaN(v)) o[i.dataset.f]=v;
+    });
+    if(Object.keys(o).length) itens[id]=o;
+  });
+  lanc[comp]={competencia:comp,itens};
+  persistir("Fechamento de "+rotulo(comp)+" salvo."); render();
+};
+document.getElementById("btnAtivo").onclick=()=>{
+  const nome=document.getElementById("aNome").value.trim();
+  if(!nome){document.getElementById("ativoStatus").textContent="Informe o nome.";return;}
+  const id=slug(nome);
+  if(ativos.some(a=>a.id===id)){document.getElementById("ativoStatus").textContent="Já existe.";return;}
+  ativos.push({id,nome,classe:document.getElementById("aClasse").value,
+               modo:document.getElementById("aModo").value});
+  document.getElementById("aNome").value="";
+  persistir("Ativo adicionado.","ativoStatus"); render();
+};
+document.getElementById("btnPrem").onclick=()=>{
+  const m={pGasto:"gasto",pLiq26:"liq26",pLiq27:"liq27",pCdi26:"cdi26",pCdi27:"cdi27",
+           pIR:"ir",pDiv:"div",pVar:"varCota",pAcoes:"acoes"};
+  Object.entries(m).forEach(([id,k])=>{const v=parseFloat(document.getElementById(id).value); if(!isNaN(v))P[k]=v;});
+  render(); persistir("Premissas salvas.","premStatus");
+};
+
+document.getElementById("inComp").value="2026-10";
+render();
+carregar();
+</script>
+</body>
+</html>
