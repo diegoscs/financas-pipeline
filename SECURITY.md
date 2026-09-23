@@ -1,8 +1,28 @@
 # 🔐 Relatório de Segurança - Finanças Pipeline
 
-**Data**: 2026-08-09  
-**Status**: ✅ Vulnerabilidades Críticas Corrigidas  
-**Próxima Revisão**: 2026-09-09
+**Data**: 2026-09-23  
+**Status**: ✅ Críticas corrigidas — desta vez conferidas no banco  
+**Próxima Revisão**: 2026-12-23
+
+---
+
+## ⚠️ Leia isto antes de confiar no resto
+
+A revisão de 2026-08-09 deu as críticas como corrigidas porque o **SQL tinha
+sido escrito**. Sete semanas depois descobriu-se que a migração 08 só chegou
+ao banco pela metade: `contas`, `categorias`, `regras_categoria` e
+`transacoes` ficaram com policy de `SELECT` e `INSERT` e nenhuma de `UPDATE`
+ou `DELETE`.
+
+O sintoma não foi erro, foi silêncio: `UPDATE` sem policy não é recusado,
+apenas não encontra linha. Corrigir a categoria de um lançamento respondia
+"salvo" e não gravava nada. Ninguém notou por sete semanas.
+
+**A lição vale mais que o relatório:** arquivo `.sql` commitado não é
+controle aplicado. As migrações 14 e 15 fecharam o buraco, e desta vez cada
+afirmação abaixo foi verificada com o papel `authenticated` contra o banco de
+produção — não contra o código-fonte. O `sql/DIAGNOSTICO_RLS.sql` existe para
+refazer essa conferência em um minuto.
 
 ---
 
@@ -10,7 +30,7 @@
 
 | Severidade | Antes | Depois | Status |
 |-----------|-------|--------|--------|
-| 🔴 CRÍTICA | 3 | 0 | ✅ CORRIGIDO |
+| 🔴 CRÍTICA | 3 | 0 | ✅ CORRIGIDO E CONFERIDO |
 | 🟠 ALTA | 5 | 2 | 🟡 PARCIAL |
 | 🟡 MÉDIA | 4 | 4 | ⏳ PLANEJADO |
 | 🟢 BAIXA | 1 | 1 | ⏳ BACKLOG |
@@ -20,8 +40,10 @@
 ## 🔴 Vulnerabilidades Críticas (CORRIGIDAS)
 
 ### ✅ 1. Row-Level Security (RLS) Permissivo
-**Status**: CORRIGIDO  
-**Arquivo**: `sql/08_multi_user_security.sql`  
+**Status**: CORRIGIDO — conferido no banco em 2026-09-23  
+**Arquivos**: `sql/08_multi_user_security.sql` (desenho),
+`sql/14_rls_escrita_faltante.sql` e `sql/15_fechar_exposicao_publica.sql`
+(o que de fato fechou)  
 
 ```sql
 -- Antes (INSEGURO):
@@ -37,13 +59,13 @@ CREATE POLICY "transacoes_select" ON transacoes
   );
 ```
 
-**Ação Necessária**: Executar SQL no Supabase Console:
-```bash
-1. Acesse: Supabase → SQL Editor
-2. Cole o conteúdo de sql/08_multi_user_security.sql
-3. Clique em "Run"
-4. Verifique a consulta de verificação no final
-```
+**Estado conferido** (não deduzido do código): 4 policies por tabela de dados,
+`perfil` com dono e RLS, cache de mercado fechado para `anon`, as seis views
+em `security_invoker`. Testado com JWT simulado: o dono escreve, o segundo
+usuário vê zero em tudo, o anônimo vê zero no cache.
+
+**Como refazer a conferência**: rode `sql/DIAGNOSTICO_RLS.sql` no SQL Editor.
+As consultas 2 e 3 têm que voltar vazias.
 
 ---
 
@@ -69,12 +91,22 @@ if (!tickers.every(t => TICKER_REGEX.test(t))) {
 
 ### ✅ 3. Chave Anon Pública Exposta
 **Status**: MITIGADO  
-**Arquivo**: `web/src/middleware.ts`
+**Arquivo**: `web/src/components/LayoutClient.tsx`
 
-A chave continua pública (é necessária para cliente), mas agora:
-- ✅ Todas as rotas exigem autenticação
-- ✅ RLS no banco valida usuário
-- ✅ API exige token válido
+A chave continua pública — ela precisa ir no bundle do browser. O que a torna
+inofensiva é o RLS: com ela sozinha, sem um usuário logado, não se lê nem se
+escreve nada.
+
+- ✅ RLS no banco valida o usuário em toda tabela (item 1)
+- ✅ A rota `/api/mercado` exige token válido e fala com o banco no nome de
+  quem chamou, não com a chave crua
+- ⚠️ **A proteção de rota é no cliente**, em `LayoutClient`. Existiu um
+  middleware que faria isso no servidor, mas nunca foi ligado — o arquivo
+  estava como `middleware.ts.disabled` e foi removido, porque arquivo
+  desligado no repositório passa a impressão de proteção que não existe.
+  Quem souber a URL recebe o HTML da página; o que protege o **dado** é o
+  RLS. Refazer o middleware com `@supabase/ssr` continua sendo o caminho
+  certo e está anotado como dívida no `CLAUDE.md`.
 
 ---
 

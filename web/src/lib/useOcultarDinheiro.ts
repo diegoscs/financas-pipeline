@@ -28,16 +28,3 @@ export function useOcultarDinheiro() {
 
   return { oculto, toggle, carregado };
 }
-
-/**
- * Substituir dinheiro por bolinhas se oculto.
- *
- * Máscara de tamanho fixo de propósito: repetir uma bolinha por caractere
- * entregava a ordem de grandeza — dá para ver quem tem quatro dígitos e quem
- * tem seis olhando de longe, que é exatamente de quem se está escondendo.
- */
-export const MASCARA = '••••••';
-
-export function formatarDinheiro(valor: string, oculto: boolean): string {
-  return oculto ? MASCARA : valor;
-}

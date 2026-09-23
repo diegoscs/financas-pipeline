@@ -1,6 +1,6 @@
 # Estado do projeto
 
-Atualizado: 2026-08-03
+Atualizado: 2026-09-23
 
 ---
 
@@ -47,6 +47,9 @@ dez/25 a jul/26 · **R$ 12.427,60** de gasto líquido.
 - Desfazer importação por `execucao_id`
 - `ingestion_log` como histórico real de importações
 - Limpar base atrás de confirmação digitada
+- Login com Supabase Auth; a app está em produção na Vercel
+- RLS por `auth.uid()` em todas as tabelas, **conferido contra o banco** com
+  JWT simulado — ver `SECURITY.md` e `sql/DIAGNOSTICO_RLS.sql`
 
 ### Bugs corrigidos (todos encontrados em dado real)
 | Bug | Impacto |
@@ -76,12 +79,6 @@ dez/25 a jul/26 · **R$ 12.427,60** de gasto líquido.
 
 ## A fazer
 
-### Bloqueia o deploy
-**Autenticação.** As policies `tmp_anon_*` liberam leitura e escrita da base
-para qualquer um. Aceitável em localhost, inaceitável em URL pública. Rodar
-`sql/desfazer_policies_anon.sql` e configurar Supabase Auth com policies por
-`auth.uid()`. Exige coluna `user_id` nas tabelas de dado.
-
 ### Perda irreversível enquanto não for feito
 **Bronze.** `CLAUDE.md` regra 6: payload cru sobe pro Storage antes de qualquer
 parse. A app web não faz — `bronze_path` está nulo em 100% das linhas. Se um
@@ -102,8 +99,10 @@ teste. Os invariantes dão para automatizar e rodar a cada carregamento:
 soma da fatura = soma dos lançamentos · zero lançamento órfão · zero
 prefixo-duplicata · nenhuma categoria de grupo `receita` com valor negativo.
 
-**Testes.** Só existe `verificar-hashes`. Sem cobertura: categorização,
-competência, `sugerirPadrao`, conferência.
+**Testes.** Existem `verificar-hashes`, `verificar-calculos` e o
+`sql/DIAGNOSTICO_RLS.sql` — nenhum roda em CI, os três dependem de alguém
+lembrar. Sem cobertura nenhuma: categorização, competência, `sugerirPadrao`,
+conferência.
 
 **Backup.** Não existe. `LIMPAR` é irreversível e o desfazer só cobre um lote.
 

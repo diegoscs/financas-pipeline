@@ -67,7 +67,7 @@ export function mesSeguinte(iso: string): string {
 }
 
 /** Mês anterior ao de uma data ISO, como competência. */
-export function mesAnterior(iso: string): string {
+function mesAnterior(iso: string): string {
   const ano = Number(iso.slice(0, 4));
   const mes = Number(iso.slice(5, 7));
   return mes === 1 ? `${ano - 1}-12-01` : `${ano}-${String(mes - 1).padStart(2, '0')}-01`;

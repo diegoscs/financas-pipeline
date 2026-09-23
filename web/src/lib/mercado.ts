@@ -58,34 +58,6 @@ export function renderNoPeriodo(
 
 export const DIAS_UTEIS_MES = 21;
 
-// ── cliente ────────────────────────────────────────────────────────────────
 
-import { supabase } from './supabase';
-
-async function pedir<T>(params: Record<string, string>): Promise<T> {
-  // Obter token de sessão para autenticação
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
-
-  if (!token) {
-    throw new Error('Não autenticado. Faça login para consultar cotações.');
-  }
-
-  const r = await fetch(`/api/mercado?${new URLSearchParams(params)}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-  const corpo = await r.json();
-  if (!r.ok) throw new Error(corpo?.erro ?? `Falha ao consultar mercado (${r.status})`);
-  return corpo as T;
-}
-
-export function buscarCotacoes(tickers: string[]): Promise<{ cotacoes: Cotacao[]; erros: string[] }> {
-  if (tickers.length === 0) return Promise.resolve({ cotacoes: [], erros: [] });
-  return pedir({ tickers: tickers.join(',') });
-}
-
-export function buscarCdi(): Promise<Cdi> {
-  return pedir({ cdi: '1' });
-}
+// As chamadas HTTP vivem em `mercadoApi.ts`: este arquivo é só aritmética e
+// tipo, sem dependência de runtime, para poder ser verificado sem ambiente.

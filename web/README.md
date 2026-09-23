@@ -30,15 +30,19 @@ tabela — o que também elimina o limite de 4,5 MB de body das funções da Ver
 
 ## O que não pode esquecer
 
-**A base está aberta.** Não existe login, e as policies `tmp_anon_*` liberam
-leitura e escrita para qualquer um com a URL. Isso é aceitável em localhost e
-inaceitável em produção. Antes de publicar:
+**Quem protege o dado é o RLS, não a tela.** Há login (Supabase Auth) e todas
+as tabelas filtram por `auth.uid()`. Mas a proteção de *rota* é feita no
+cliente, em `LayoutClient` — quem souber a URL recebe o HTML da página. O que
+não recebe é dado nenhum.
 
-```bash
-psql < ../sql/desfazer_policies_anon.sql   # ou cole no SQL Editor do Supabase
-```
+Consequência prática: ao mexer em qualquer escrita, **o `usuario_id` é
+obrigatório** (use `usuarioAtual()` de `src/lib/dono.ts`). Gravar sem ele é
+recusado com 42501. E `UPDATE`/`DELETE` barrados por RLS **não dão erro** —
+não encontram linha. Por isso toda escrita pede `.select()` de volta e passa
+por `exigirLinhas()`: sem isso o app diz "salvo" e o banco não muda.
 
-e configure Supabase Auth com policies por `auth.uid()`.
+Depois de qualquer migração que toque em policy, rode `sql/DIAGNOSTICO_RLS.sql`
+no SQL Editor. As consultas 2 e 3 têm que voltar vazias.
 
 ## Você escolhe o banco, o arquivo escolhe a conta
 

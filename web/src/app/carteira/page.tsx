@@ -22,9 +22,10 @@ import { competenciaRotulo } from '@/lib/competencia';
 import { Marca } from '@/components/Marca';
 import { useOcultarDinheiro } from '@/lib/useOcultarDinheiro';
 import {
-  buscarCdi, buscarCotacoes, CDI_PADRAO, DIAS_UTEIS_MES, renderNoPeriodo,
+  CDI_PADRAO, DIAS_UTEIS_MES, renderNoPeriodo,
   type Cdi, type Cotacao,
 } from '@/lib/mercado';
+import { buscarCdi, buscarCotacoes } from '@/lib/mercadoApi';
 import {
   carregarCarteira, estimarProximo, mesSeguinte, registrarProvento, removerAtivo,
   ROTULO_TIPO, salvarPosicao, TICKER_VALIDO, palpitarTipo,

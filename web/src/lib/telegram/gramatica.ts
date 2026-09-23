@@ -102,7 +102,7 @@ export function interpretar(mensagem: string, agora = new Date()): Interpretado 
   // Sem sinal explícito é saída: gasto é o caso comum.
   const valor = mv[1] === '+' ? num : -Math.abs(num);
 
-  let texto = (resto.slice(0, mv.index) + resto.slice(mv.index + mv[0].length)).trim();
+  const texto = (resto.slice(0, mv.index) + resto.slice(mv.index + mv[0].length)).trim();
 
   // Método, se a primeira palavra restante for um dos conhecidos.
   let metodo: Metodo = 'pix';

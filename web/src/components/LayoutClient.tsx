@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Nav } from './Nav';
-import AvisoSeguranca from './AvisoSeguranca';
 
 export function LayoutClient({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -73,7 +72,6 @@ export function LayoutClient({ children }: { children: React.ReactNode }) {
       <main className={pathname === '/login' ? '' : 'mx-auto max-w-5xl px-6 py-8'}>
         {children}
       </main>
-      {pathname !== '/login' && <AvisoSeguranca />}
     </>
   );
 }

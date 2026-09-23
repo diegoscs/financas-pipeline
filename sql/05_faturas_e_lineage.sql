@@ -95,13 +95,24 @@ update categorias set grupo = 'indefinido' where nome = 'Não classificado';
 -- O padrão é a chave: corrigir a mesma descrição duas vezes tem que TROCAR a
 -- regra, não criar uma segunda. Duas regras com o mesmo padrão e categorias
 -- diferentes fazem vencer a mais antiga, e a correção nova é ignorada.
+-- SUPERADO pela migração 15: a chave passou a ser (usuario_id, padrao). O
+-- padrão sozinho é único no banco inteiro, e com multiusuário o segundo a
+-- corrigir "^IFOOD" colidiria com a regra do primeiro.
 alter table regras_categoria drop constraint if exists regras_categoria_padrao_key;
 alter table regras_categoria add constraint regras_categoria_padrao_key unique (padrao);
 
--- ── Policies temporárias ────────────────────────────────────────────────────
--- ⚠ Liberam a base inteira para o papel anon. Ver sql/desfazer_policies_anon.sql
-create policy if not exists tmp_anon_faturas       on faturas       for all to anon using (true) with check (true);
-create policy if not exists tmp_anon_ingestion_log on ingestion_log for all to anon using (true) with check (true);
+-- ── Policies temporárias — REMOVIDAS, não reativar ──────────────────────────
+-- Liberavam a base inteira para o papel anon, de quando o app rodava só em
+-- localhost e não tinha login. Foram derrubadas quando o Supabase Auth
+-- entrou; as policies válidas hoje são as das migrações 08, 10 a 13, 14 e 15,
+-- todas por auth.uid().
+--
+-- Ficam comentadas em vez de apagadas porque este arquivo é o schema
+-- reproduzível do zero: rodá-lo inteiro num banco novo reabriria a base para
+-- qualquer um com a URL.
+--
+-- create policy tmp_anon_faturas       on faturas       for all to anon using (true) with check (true);
+-- create policy tmp_anon_ingestion_log on ingestion_log for all to anon using (true) with check (true);
 
 -- ── Compras vs saldo (descoberto num extrato real de jan/2026) ──────────────
 -- 'valor_total' guardava grandezas diferentes conforme a fonte:

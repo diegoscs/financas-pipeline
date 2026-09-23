@@ -9,7 +9,14 @@ defensáveis em entrevista, não apenas funcionais.
 
 ## Stack
 
-Python 3.11+ · Supabase (Postgres + Storage) · dbt-core · Metabase (Docker) · GitHub Actions
+Next.js 15 (App Router, TypeScript) na Vercel · Supabase (Postgres + Auth) · Tailwind 4
+
+O parse roda **no navegador**: o arquivo vira linha de tabela sem passar por
+servidor nosso. Foi o que permitiu sair da Vercel Functions, cujo limite de
+4,5 MB de payload não cabia fatura grande.
+
+A primeira versão era CLI em Python com dbt e Metabase. Está em `legado/`, não
+roda mais, e o README de lá explica o que foi portado e o que se perdeu.
 
 ## Restrições do projeto
 
@@ -89,10 +96,16 @@ gastos iguais no mesmo dia são legítimos.
 Só o que efetivamente saiu no período. Parcelas futuras **não** são projetadas.
 Isso está fora de escopo na v1.
 
-### 6. Bronze é imutável e append-only
+### 6. Bronze é imutável e append-only — e hoje NÃO existe
 
-Payload cru sobe pro Storage **antes** de qualquer parse, com timestamp no nome.
-Nunca sobrescrever. Se o parse falha, o dado cru está salvo e reprocessa.
+A regra: payload cru sobe pro Storage **antes** de qualquer parse, com
+timestamp no nome, nunca sobrescrito. Se o parse falha, o dado cru está salvo
+e reprocessa.
+
+**A app web não faz isso.** `legado/ingestion/storage.py` fazia e não foi
+portado; `bronze_path` está nulo em todas as linhas. Está aqui como alvo, não
+como descrição — quem for implementar, é esta a regra a seguir. Não confundir
+com convenção cumprida.
 
 ---
 
@@ -100,61 +113,73 @@ Nunca sobrescrever. Se o parse falha, o dado cru está salvo e reprocessa.
 
 ```
 financas-pipeline/
-├── ingestion/
-│   ├── schemas.py           # dataclasses Transacao / Snapshot / ResultadoParse
-│   ├── normalize.py         # normalização de descrição + hash_natural
-│   ├── storage.py           # upload bronze (Supabase Storage)
-│   ├── loader.py            # upsert idempotente + ingestion_log
-│   ├── categorize.py        # regras -> LLM -> fila manual
-│   ├── transfers.py         # pareamento de transferências internas
-│   ├── cli.py               # entrypoint
-│   └── parsers/
-│       ├── ofx_nubank.py    # PRONTO E TESTADO
-│       └── xlsx_itau.py     # PRONTO E TESTADO
-├── bot/                     # Telegram: recebe arquivos, /saldo, gasto avulso
-├── dbt/
-├── sql/                     # migrations aplicadas no Supabase
-├── samples/                 # arquivos reais (GITIGNORED — nunca commitar)
-├── synthetic/               # gerador de dados falsos (commitado)
-├── docs/                    # ADRs
-└── .github/workflows/
+├── web/
+│   ├── src/app/             # rotas (App Router)
+│   │   ├── page.tsx         # Importar: recebe o arquivo e grava
+│   │   ├── analise/         # Quanto gastei: a tela principal
+│   │   ├── carteira/        # investimentos, reservas, proventos
+│   │   ├── onboarding/      # contas, cartões e marco zero
+│   │   ├── login/
+│   │   └── api/mercado/     # cotação e CDI com cache (guarda o token da brapi)
+│   ├── src/lib/             # a lógica toda; ver tabela abaixo
+│   ├── src/components/      # Nav, Marca, LayoutClient (proteção de rota)
+│   └── scripts/             # bot do Telegram, import em lote, verificações
+├── sql/                     # migrations, na ordem, aplicadas no Supabase
+├── docs/                    # ADRs + estado
+├── legado/                  # pipeline Python original; não roda (ver README de lá)
+└── samples/                 # arquivos reais (GITIGNORED — nunca commitar)
 ```
 
-**Todo parser retorna `ResultadoParse`** (transações + snapshot + avisos).
+O que mora em `web/src/lib/`:
+
+| arquivo          | responsabilidade                                          |
+|------------------|-----------------------------------------------------------|
+| `ingest.ts`      | orquestra: prepara, confere, grava, desfaz importação      |
+| `parsers/`       | `ofx.ts` (Nubank) e `xlsxItau.ts`; cada um devolve o mesmo formato |
+| `normalize.ts`   | descrição normalizada + `hash_natural` — a chave de dedupe |
+| `categorize.ts`  | aplica as regras por prioridade                            |
+| `aprender.ts`    | correção manual vira regra nova                            |
+| `ciclo.ts`       | aritmética de calendário do cartão, sem dependência de runtime |
+| `minhasContas.ts`| decide o que é transferência interna, aporte ou receita    |
+| `dono.ts`        | `usuario_id` das escritas e detecção de escrita barrada por RLS |
+| `ocultar.ts`     | estado global do botão de ocultar valores                  |
+
+**Todo parser devolve o mesmo contrato** (transações + snapshot + avisos). É o
+que permite adicionar um banco novo sem tocar em nada a jusante.
 É o contrato que permite adicionar um banco novo sem tocar em nada a jusante.
 
 ---
 
 ## Estado atual
 
-### Pronto
-- `sql/schema_financas.sql` — dimensões, fato, snapshots, views de reconciliação
-- `sql/02_ingestion_log.sql` — lineage do bronze, log de execução, conferência de cartão
-- `ingestion/schemas.py`, `ingestion/normalize.py`
-- `ingestion/parsers/ofx_nubank.py` — validado: soma bate com `LEDGERBAL` no centavo
-- `ingestion/parsers/xlsx_itau.py` — validado: detecta saldo de abertura necessário
-- `docker-compose.yml` — Metabase + Postgres de metadados
+Em produção em `financas-pipeline.vercel.app`, com dados reais de dois cartões.
+O detalhe do que está feito vive em `docs/ESTADO.md` — aqui fica só o que muda
+a decisão de quem for mexer.
 
-### Próximo
-1. `storage.py` + `loader.py` (fecha a fase 1)
-2. Parser do **extrato da conta Nubank** — ainda não temos amostra. É `STMTRS`,
-   não `CCSTMTRS`, e é onde estão os Pix. Não escrever às cegas.
-3. `categorize.py` + `transfers.py`
+### Dívidas conhecidas
 
-### Fases
-| # | Entrega | Checkpoint |
-|---|---|---|
-| 0 | Fundação + modelo validado | gap de reconciliação = 0 com dados fabricados |
-| 1 | Parsers + dedupe + loader | mesmo arquivo 2x → 0 linhas novas na 2ª |
-| 2 | Categorização + internas | <15% não classificado, gap < 5% |
-| 3 | Bot Telegram (ingestão) | arquivo enviado do celular chega no bronze |
-| 4 | dbt + gold + testes | `dbt build` verde com 2 meses reais |
-| 5 | Metabase | responde "quanto guardei" em 5 segundos |
-| 6 | Orquestração por polling | uma semana sem intervenção manual |
-| 7 | Portfólio | terceiro clona e roda sem ajuda |
+Nenhuma destas é bug: são escolhas com consequência, anotadas para não serem
+redescobertas do zero.
 
-**Nenhuma fase começa antes do checkpoint da anterior passar.** Automação em
-cima de dado errado multiplica o erro.
+- **Sem bronze.** O payload cru não sobe para lugar nenhum antes do parse (ver
+  convenção 6). `bronze_path` está nulo em todas as linhas. Se um parser tiver
+  bug, o arquivo original é a única cópia — e ele está na máquina do usuário.
+- **Transferência entre contas próprias não é pareada.** `legado/transfers.py`
+  fazia e não foi portado. Não pesa enquanto a tela é só de cartão; passa a
+  pesar no dia em que entrar conta corrente.
+- **Proteção de rota é só no cliente** (`LayoutClient`). Quem souber a URL
+  recebe o HTML; o que protege o *dado* é o RLS, não a tela. Um middleware
+  chegou a existir e foi desligado — o caminho certo seria refazê-lo com
+  `@supabase/ssr` e cookies.
+- **Sem teste automatizado de verdade.** Há três verificações rodáveis à mão
+  (`verificar-hashes`, `verificar-calculos`, `sql/DIAGNOSTICO_RLS.sql`) e
+  nenhuma roda em CI.
+
+### Próximo, quando houver amostra
+
+Parser do **extrato da conta Nubank**: é `STMTRS`, não `CCSTMTRS`, e é onde
+estão os Pix. Não escrever às cegas — ver a regra de trabalho no fim deste
+arquivo.
 
 ---
 
@@ -183,16 +208,22 @@ cima de dado errado multiplica o erro.
 
 ## Comandos
 
+Tudo a partir de `web/`:
+
 ```bash
-source .venv/bin/activate
+npm run dev                  # localhost:3000
+npm run build                # o que a Vercel roda; quebra em erro de tipo
+npm run lint
 
-python -m ingestion.cli --fonte ofx_nubank_cartao --arquivo samples/nubank.ofx
-python testar.py                     # roda parsers contra samples/
-
-cd dbt && dbt build
-
-docker compose up -d                 # Metabase em localhost:3000
+npm run verificar-hashes     # prova que o hash do TS bate com o do Python legado
+npm run verificar-calculos   # ciclo do cartão, CDI e projeção de proventos
+npm run importar -- <pasta>  # importa OFX/XLSX em lote, sem a tela
+npm run bot                  # bot do Telegram (polling)
 ```
+
+Banco: as migrations em `sql/` rodam no SQL Editor do Supabase, na ordem do
+nome. Depois de mexer em RLS, rodar `sql/DIAGNOSTICO_RLS.sql` — as consultas 2
+e 3 têm que voltar vazias.
 
 ---
 

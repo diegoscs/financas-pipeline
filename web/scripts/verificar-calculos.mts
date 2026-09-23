@@ -121,10 +121,21 @@ teste('nenhum pagamento não vira previsão', () => {
   assert.equal(estimarProximo([]), null);
 });
 
+/**
+ * Data fixa nos testes que olham a competência prevista.
+ *
+ * `estimarProximo` nunca aponta para mês que já passou — ela trava no mês
+ * corrente. Sem fixar "hoje", o teste passava em julho de 2026 e passou a
+ * falhar sozinho depois, sem ninguém ter mexido no código. Foi o que
+ * aconteceu: as duas asserções abaixo estavam quebradas e ninguém viu, porque
+ * o script inteiro morria antes de rodar (ver `mercadoApi.ts`).
+ */
+const JULHO = new Date(2026, 6, 15);
+
 teste('FII estável: média dos três e mês seguinte', () => {
   const e = estimarProximo([
     prov('2026-05-01', 0.10), prov('2026-06-01', 0.10), prov('2026-07-01', 0.10),
-  ])!;
+  ], JULHO)!;
   assert.ok(Math.abs(e.valorPorCota - 0.10) < 1e-9);
   assert.equal(e.competencia, '2026-08-01');
   assert.equal(e.base, 3);
@@ -149,7 +160,7 @@ teste('estimativa anterior NÃO entra na média seguinte', () => {
 });
 
 teste('ordem de entrada não importa', () => {
-  const a = estimarProximo([prov('2026-05-01', 0.1), prov('2026-07-01', 0.2), prov('2026-06-01', 0.3)])!;
+  const a = estimarProximo([prov('2026-05-01', 0.1), prov('2026-07-01', 0.2), prov('2026-06-01', 0.3)], JULHO)!;
   assert.equal(a.competencia, '2026-08-01');
 });
 
