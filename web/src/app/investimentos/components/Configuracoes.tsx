@@ -7,7 +7,9 @@
  * há o que lançar, logo não há posição, logo não há rendimento nem projeção.
  */
 import { useState } from 'react';
-import { CLASSES, PERCENTUAL_CDI_PADRAO, percentualCdiCarteira, posicoes, slug } from '../lib/calc';
+import {
+  CLASSES, PERCENTUAL_CDI_PADRAO, percentualCdiCarteira, posicoes, slug, taxaRendaFixaMes,
+} from '../lib/calc';
 import { dinheiro, pct } from '../lib/formato';
 import { TICKER_VALIDO, type CdiGuardado } from '../lib/cotacaoCache';
 import type { Ativo, Classe, InvestState, Modo, Premissas } from '../lib/types';
@@ -133,6 +135,13 @@ export function Configuracoes({ estado, onMudar, cdi, onAtualizarCdi }: {
     posicoes(estado.ativos, estado.lancamentos).slice(-1)[0],
   );
 
+  const temRendaFixa = estado.ativos.some((a) => a.classe === 'renda_fixa');
+  const cdiVigente = auto && cdi ? cdi.anual : p.cdi2026;
+  // Traduz as três premissas de renda fixa no único número que a pessoa
+  // consegue conferir contra o extrato: quanto rende por mês.
+  const rfAoMes = taxaRendaFixaMes(cdiVigente, p.ir, pctCarteira) * 100;
+  const sobra = p.liquido2026 - p.gasto;
+
   return (
     <>
       <Cartao titulo="Ativos" sub="O identificador vem do nome e é o que liga os lançamentos ao ativo.">
@@ -227,70 +236,124 @@ export function Configuracoes({ estado, onMudar, cdi, onAtualizarCdi }: {
         )}
       </Cartao>
 
-      <Cartao titulo="Premissas" sub="Valem só para a projeção. O rendimento já realizado é medido, nunca estimado.">
-        <div className={css.camposLinha} style={{ marginBottom: 14 }}>
-          <label className={css.campo} style={{ flex: '1 1 auto' }}>
-            <span>CDI</span>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.84rem', paddingTop: 6 }}>
-              <input
-                type="checkbox" checked={auto} style={{ width: 'auto', minHeight: 0 }}
-                onChange={(e) => mudarAuto(e.target.checked)}
-              />
-              Usar a taxa do Banco Central automaticamente
-            </label>
+      <Cartao
+        titulo="Quanto sobra por mês"
+        sub="É daqui que sai o aporte da projeção. O que já rendeu é medido — isto não mexe nele."
+      >
+        <div className={css.camposLinha}>
+          <CampoNumero rotulo="Custo de vida" prefixo="R$" valor={p.gasto} passo={50}
+                       onMudar={(v) => mudarPremissa('gasto', v)} />
+          <span className={css.operador}>−</span>
+          <CampoNumero rotulo="Entra por mês" prefixo="R$" valor={p.liquido2026} passo={50}
+                       onMudar={(v) => mudarPremissa('liquido2026', v)} />
+          <span className={css.operador}>=</span>
+          <span className={css.resultado}>
+            <span className={css.resultadoValor}>{dinheiro(sobra)}</span>
+            <span className={css.resultadoRotulo}>por mês</span>
+          </span>
+        </div>
+
+        {/*
+          A conta é `entra − custo`, nessa ordem de leitura. Os campos aparecem
+          invertidos de propósito: custo de vida vem primeiro porque é o número
+          que manda em três coisas — o aporte, as metas de reserva e os "meses
+          cobertos" —, e é o único que a pessoa revisa de verdade.
+        */}
+        <p className={css.previa}>
+          {sobra > 0
+            ? <>Com esse custo, a reserva de 6 meses é <strong>{dinheiro(p.gasto * 6)}</strong> e
+               a de 12, <strong>{dinheiro(p.gasto * 12)}</strong>.</>
+            : <>Sem sobra não há aporte: a projeção só cresce pelo rendimento.</>}
+        </p>
+
+        <details className={css.detalhes}>
+          <summary>
+            A partir de 2027 entra outro valor
+            <span className={css.resumoFechado}>{dinheiro(p.liquido2027)}/mês</span>
+          </summary>
+          <div className={css.camposLinha} style={{ marginTop: 10 }}>
+            <CampoNumero rotulo="Entra por mês em 2027" prefixo="R$" valor={p.liquido2027} passo={50}
+                         onMudar={(v) => mudarPremissa('liquido2027', v)} />
+            <span className={css.previa} style={{ margin: 0, alignSelf: 'center' }}>
+              sobram {dinheiro(p.liquido2027 - p.gasto)}/mês
+            </span>
+          </div>
+        </details>
+      </Cartao>
+
+      <Cartao titulo="Quanto o dinheiro rende" sub="Usado só para projetar o futuro.">
+        <div className={css.camposLinha}>
+          <label className={css.caixaLinha}>
+            <input type="checkbox" checked={auto} onChange={(e) => mudarAuto(e.target.checked)} />
+            Pegar o CDI do Banco Central
           </label>
 
           {auto && cdi && (
             <span className={css.status}>
-              <strong className={css.mono}>{pct(cdi.anual, 2)}</strong> a.a. · série de {cdi.data}
+              hoje <strong className={css.mono}>{pct(cdi.anual, 2)}</strong> a.a. · série de {cdi.data}
             </span>
           )}
           {auto && !cdi && (
             <span className={css.status}>
-              ainda não consegui a taxa — a projeção está usando {pct(p.cdi2026, 2)} guardado
+              não consegui a taxa — usando {pct(p.cdi2026, 2)} guardado
             </span>
           )}
           <button type="button" className={css.linkEditar} onClick={onAtualizarCdi}>
-            atualizar agora
+            atualizar
           </button>
         </div>
 
-        <div className={css.campos}>
-          <CampoNumero rotulo="Custo de vida (R$/mês)" valor={p.gasto} passo={50}
-                       onMudar={(v) => mudarPremissa('gasto', v)} />
-          <CampoNumero rotulo="Líquido 2026 (R$/mês)" valor={p.liquido2026} passo={50}
-                       onMudar={(v) => mudarPremissa('liquido2026', v)} />
-          <CampoNumero rotulo="Líquido 2027 (R$/mês)" valor={p.liquido2027} passo={50}
-                       onMudar={(v) => mudarPremissa('liquido2027', v)} />
-          {!auto && (
-            <>
-              <CampoNumero rotulo="CDI 2026 (% a.a.)" valor={p.cdi2026} passo={0.05}
-                           onMudar={(v) => mudarPremissa('cdi2026', v)} />
-              <CampoNumero rotulo="CDI 2027 (% a.a.)" valor={p.cdi2027} passo={0.05}
-                           onMudar={(v) => mudarPremissa('cdi2027', v)} />
-            </>
-          )}
-          <CampoNumero rotulo="IR na renda fixa (%)" valor={p.ir} passo={1}
-                       onMudar={(v) => mudarPremissa('ir', v)} />
-          <CampoNumero rotulo="Dividendo FII (% ao mês)" valor={p.dividendoFii} passo={0.05}
-                       onMudar={(v) => mudarPremissa('dividendoFii', v)} />
-          <CampoNumero rotulo="Valorização da cota (% ao mês)" valor={p.valorizacaoCota} passo={0.05}
-                       onMudar={(v) => mudarPremissa('valorizacaoCota', v)} />
-          <CampoNumero rotulo="Retorno ações (% ao mês)" valor={p.retornoAcoes} passo={0.05}
-                       onMudar={(v) => mudarPremissa('retornoAcoes', v)} />
-        </div>
+        {!auto && (
+          <div className={css.camposLinha} style={{ marginTop: 10 }}>
+            <CampoNumero rotulo="CDI em 2026" sufixo="% a.a." valor={p.cdi2026} passo={0.05}
+                         onMudar={(v) => mudarPremissa('cdi2026', v)} />
+            <CampoNumero rotulo="CDI em 2027" sufixo="% a.a." valor={p.cdi2027} passo={0.05}
+                         onMudar={(v) => mudarPremissa('cdi2027', v)} />
+          </div>
+        )}
 
-        <p className={css.nota}>
-          A projeção da renda fixa usa{' '}
-          <code>((1 + CDI)^(1/12) − 1) × % do CDI × (1 − IR)</code>; FII soma dividendo e
-          valorização; ações e cripto usam o retorno de ações. Tudo recalcula na hora.
-          {estado.ativos.some((a) => a.classe === 'renda_fixa') && (
-            <>
-              {' '}Sua renda fixa hoje rende, na média ponderada pelo saldo,{' '}
-              <strong>{pct(pctCarteira, 0)} do CDI</strong>.
-            </>
-          )}
-        </p>
+        {temRendaFixa && (
+          <p className={css.previa}>
+            Sua renda fixa rende <strong>{pct(pctCarteira, 0)} do CDI</strong> na média ponderada
+            pelo saldo, o que dá <strong>{pct(rfAoMes, 2)} ao mês</strong>, já descontado o IR.
+          </p>
+        )}
+
+        {/*
+          Os quatro parâmetros abaixo saem da frente por padrão.
+          Não é esconder: é que são os únicos que quase nunca mudam, e
+          deixá-los ao lado do custo de vida dava sete campos iguais em que
+          nada indicava qual importa. O resumo fechado mostra o que valem.
+        */}
+        <details className={css.detalhes}>
+          <summary>
+            Ajustar o rendimento estimado
+            <span className={css.resumoFechado}>
+              FII {pct(p.dividendoFii + p.valorizacaoCota, 1)}/mês ·
+              {' '}ações {pct(p.retornoAcoes, 1)}/mês · IR {pct(p.ir, 0)}
+            </span>
+          </summary>
+
+          <div className={css.campos} style={{ marginTop: 12 }}>
+            <CampoNumero rotulo="IR sobre a renda fixa" sufixo="%" valor={p.ir} passo={1}
+                         ajuda="20% é a alíquota de quem deixa aplicado mais de 2 anos"
+                         onMudar={(v) => mudarPremissa('ir', v)} />
+            <CampoNumero rotulo="Dividendo de FII" sufixo="% ao mês" valor={p.dividendoFii} passo={0.05}
+                         ajuda="o que o fundo paga em rendimento"
+                         onMudar={(v) => mudarPremissa('dividendoFii', v)} />
+            <CampoNumero rotulo="Valorização da cota" sufixo="% ao mês" valor={p.valorizacaoCota} passo={0.05}
+                         ajuda="quanto o preço da cota sobe além do dividendo"
+                         onMudar={(v) => mudarPremissa('valorizacaoCota', v)} />
+            <CampoNumero rotulo="Retorno de ações" sufixo="% ao mês" valor={p.retornoAcoes} passo={0.05}
+                         ajuda="vale também para cripto"
+                         onMudar={(v) => mudarPremissa('retornoAcoes', v)} />
+          </div>
+
+          <p className={css.nota}>
+            Renda fixa: <code>((1 + CDI)^(1/12) − 1) × % do CDI × (1 − IR)</code>.
+            FII soma dividendo e valorização. Ações e cripto usam o retorno de ações.
+          </p>
+        </details>
       </Cartao>
 
       <Cartao titulo="13º e entradas extras"
@@ -329,18 +392,34 @@ export function Configuracoes({ estado, onMudar, cdi, onAtualizarCdi }: {
  * e espera a confirmação.
  */
 
-function CampoNumero({ rotulo, valor, passo, onMudar }: {
-  rotulo: string; valor: number; passo: number; onMudar: (v: number) => void;
+/**
+ * Campo numérico com unidade grudada no rótulo.
+ *
+ * `R$` e `% ao mês` ficam fora do nome porque os rótulos em caixa alta
+ * quebravam linha no meio da unidade — "VALORIZAÇÃO DA COTA (% AO / MÊS)" —
+ * e desalinhavam a grade inteira.
+ */
+function CampoNumero({ rotulo, valor, passo, prefixo, sufixo, ajuda, onMudar }: {
+  rotulo: string; valor: number; passo: number;
+  prefixo?: string; sufixo?: string; ajuda?: string;
+  onMudar: (v: number) => void;
 }) {
   return (
-    <label className={css.campo}>
-      <span>{rotulo}</span>
-      <input
-        type="number" step={passo} value={valor}
-        // Campo vazio vira 0 e não NaN: NaN contaminaria a projeção inteira
-        // sem levantar uma exceção sequer.
-        onChange={(e) => onMudar(e.target.value === '' ? 0 : Number(e.target.value))}
-      />
+    <label className={`${css.campo} ${css.campoCurto}`}>
+      <span>
+        {rotulo}
+        {sufixo && <span className={css.unidade}> {sufixo}</span>}
+      </span>
+      <span className={css.entradaComPrefixo}>
+        {prefixo && <span className={css.prefixo}>{prefixo}</span>}
+        <input
+          type="number" step={passo} value={valor}
+          // Campo vazio vira 0 e não NaN: NaN contaminaria a projeção inteira
+          // sem levantar uma exceção sequer.
+          onChange={(e) => onMudar(e.target.value === '' ? 0 : Number(e.target.value))}
+        />
+      </span>
+      {ajuda && <span className={css.ajuda}>{ajuda}</span>}
     </label>
   );
 }

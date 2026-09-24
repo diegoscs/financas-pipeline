@@ -321,6 +321,121 @@
   line-height: 1.5;
 }
 
+/* ── premissas ────────────────────────────────────────────────────────── */
+/*
+ * A versão anterior era uma grade de sete campos iguais, com rótulo em caixa
+ * alta que quebrava linha no meio da unidade e desalinhava tudo. O que manda
+ * de verdade são dois números — custo de vida e quanto entra —, então eles
+ * ficam numa conta visível e o resto vai para trás de um resumo.
+ */
+
+.unidade {
+  color: var(--inv-suave-claro);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.ajuda {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--inv-suave-claro);
+  margin-top: 4px;
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* R$ dentro da caixa, para o campo não precisar dele no rótulo. */
+.entradaComPrefixo { position: relative; display: block; }
+.prefixo {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.82rem;
+  color: var(--inv-suave-claro);
+  font-family: var(--inv-mono);
+  pointer-events: none;
+}
+.entradaComPrefixo:has(.prefixo) input { padding-left: 32px; }
+
+.operador {
+  font-size: 1.1rem;
+  color: var(--inv-suave-claro);
+  padding-bottom: 9px;
+  font-family: var(--inv-mono);
+}
+
+.resultado {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 6px;
+}
+.resultadoValor {
+  font-family: var(--inv-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--inv-acento);
+  letter-spacing: -0.02em;
+}
+.resultadoRotulo {
+  font-size: 0.7rem;
+  color: var(--inv-suave-claro);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.caixaLinha {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+  padding: 9px 0;
+}
+.caixaLinha input {
+  width: auto;
+  min-height: 0;
+  accent-color: var(--inv-acento);
+}
+
+.detalhes {
+  margin-top: 14px;
+  border-top: 1px solid var(--inv-borda);
+  padding-top: 12px;
+}
+.detalhes summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--inv-suave);
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 0;
+}
+.detalhes summary::-webkit-details-marker { display: none; }
+.detalhes summary::before {
+  content: '▸';
+  color: var(--inv-suave-claro);
+  font-size: 0.7rem;
+}
+.detalhes[open] summary::before { content: '▾'; }
+.detalhes summary:hover { color: var(--inv-acento); }
+
+/* O que está fechado mostra o valor; senão é gaveta cega. */
+.resumoFechado {
+  font-weight: 400;
+  font-size: 0.74rem;
+  color: var(--inv-suave-claro);
+  font-family: var(--inv-mono);
+  font-variant-numeric: tabular-nums;
+}
+
 .etiqueta {
   display: inline-block;
   font-size: 0.68rem;
