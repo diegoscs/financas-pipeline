@@ -248,29 +248,77 @@
   outline-offset: -1px;
 }
 
-/* ── bloco de lançamento por ativo ────────────────────────────────────── */
+/* ── linha de lançamento por ativo ────────────────────────────────────── */
+/*
+ * Mesmo padrão da aba Carteira: linha compacta que abre para editar. Com
+ * cinco ativos, um formulário inteiro aberto por ativo vira uma parede de
+ * campos onde não se acha o que falta preencher.
+ */
 
-.blocoAtivo {
-  border: 1px solid var(--inv-borda);
-  border-radius: 10px;
-  padding: 14px;
-  margin-bottom: 10px;
-  background: var(--inv-painel-2);
-}
-.blocoTopo {
+.linhaAtivo { border-top: 1px solid var(--inv-borda); }
+.linhaAtivo:first-of-type { border-top: 0; }
+
+.linhaTopo {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 2px;
 }
-.blocoNome { font-weight: 600; font-size: 0.9rem; }
-.blocoPosicao {
+.linhaNome {
+  flex: 1 1 140px;
+  font-size: 0.92rem;
+  font-weight: 500;
+  min-width: 0;
+}
+.linhaValor {
   font-family: var(--inv-mono);
   font-variant-numeric: tabular-nums;
+  font-size: 0.92rem;
   font-weight: 700;
-  font-size: 0.95rem;
+  white-space: nowrap;
+}
+.linhaSecundario {
+  font-size: 0.74rem;
+  color: var(--inv-suave);
+  white-space: nowrap;
+  font-family: var(--inv-mono);
+  font-variant-numeric: tabular-nums;
+}
+.linkEditar {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.74rem;
+  color: var(--inv-suave);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 6px 2px;
+  white-space: nowrap;
+}
+.linkEditar:hover { color: var(--inv-acento); }
+
+/* Ativo ainda sem número neste mês: o traço aparece esmaecido. */
+.pendente { color: var(--inv-suave-claro); font-weight: 400; }
+
+.painelEdicao {
+  border-top: 1px solid var(--inv-borda);
+  background: var(--inv-painel-2);
+  padding: 13px 14px;
+  margin: 0 -14px;
+}
+.camposLinha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+.campoCurto { flex: 0 1 132px; }
+.previa {
+  font-size: 0.76rem;
+  color: var(--inv-suave);
+  margin: 10px 0 0;
+  line-height: 1.5;
 }
 
 .etiqueta {
