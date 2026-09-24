@@ -13,6 +13,8 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { derivar } from './lib/calc';
+import { buscarCdi, cdiDoCache } from './lib/mercado';
+import type { CdiGuardado } from './lib/cotacaoCache';
 import { storage } from './lib/storage';
 import type { InvestState } from './lib/types';
 import css from './investimentos.module.css';
@@ -37,6 +39,7 @@ export default function Investimentos() {
   const [aba, setAba] = useState<Aba>('visao');
   const [erro, setErro] = useState<string | null>(null);
   const [salvoEm, setSalvoEm] = useState<string | null>(null);
+  const [cdi, setCdi] = useState<CdiGuardado | null>(null);
 
   // Carrega depois da montagem, nunca durante o render: no servidor não
   // existe `localStorage`, e ler no render faria o HTML do servidor divergir
@@ -46,6 +49,28 @@ export default function Investimentos() {
     storage.load().then((s) => { if (vivo) setEstado(s); });
     return () => { vivo = false; };
   }, []);
+
+  /**
+   * O CDI vem do Banco Central sozinho, sem ninguém digitar.
+   *
+   * Começa pelo que está no cache, para a primeira renderização já sair com a
+   * taxa de ontem em vez de piscar um número e trocar meio segundo depois.
+   * Depois busca; se a busca falhar (offline, sessão expirada, BCB fora do
+   * ar), o cache continua valendo e, na falta dele, a premissa digitada.
+   * Nunca é erro de tela: taxa velha é melhor que tela travada.
+   */
+  const atualizarCdi = useCallback(async (forcar = false) => {
+    try {
+      setCdi(await buscarCdi(forcar));
+    } catch {
+      /* fica com o cache ou com a premissa digitada */
+    }
+  }, []);
+
+  useEffect(() => {
+    setCdi(cdiDoCache());
+    atualizarCdi();
+  }, [atualizarCdi]);
 
   /**
    * Toda mudança passa por aqui.
@@ -62,9 +87,29 @@ export default function Investimentos() {
       .catch((e: Error) => setErro(e.message));
   }, []);
 
-  const derivado = useMemo(() => (estado ? derivar(estado) : null), [estado]);
+  /**
+   * O estado que as abas enxergam, com o CDI de mercado por cima.
+   *
+   * As premissas guardadas continuam sendo a fonte quando o usuário desliga o
+   * automático ou quando a busca falha — o campo digitado vira a rede de
+   * segurança, não o caminho normal.
+   */
+  const estadoEfetivo = useMemo(() => {
+    if (!estado) return null;
+    const auto = estado.premissas.cdiAutomatico !== false;
+    if (!auto || !cdi) return estado;
+    return {
+      ...estado,
+      premissas: { ...estado.premissas, cdi2026: cdi.anual, cdi2027: cdi.anual },
+    };
+  }, [estado, cdi]);
 
-  if (!estado || !derivado) {
+  const derivado = useMemo(
+    () => (estadoEfetivo ? derivar(estadoEfetivo) : null),
+    [estadoEfetivo],
+  );
+
+  if (!estado || !estadoEfetivo || !derivado) {
     return (
       <div className={css.raiz}>
         <p className={css.status}>Carregando…</p>
@@ -93,23 +138,29 @@ export default function Investimentos() {
       {erro && <p className={css.statusErro} role="alert">{erro}</p>}
 
       {aba === 'visao' && (
-        <VisaoGeral estado={estado} posicoes={derivado.posicoes} geral={derivado.geral} />
+        <VisaoGeral estado={estadoEfetivo} posicoes={derivado.posicoes} geral={derivado.geral} />
       )}
       {aba === 'lancar' && <LancarMes estado={estado} onMudar={mudar} />}
       {aba === 'rentabilidade' && (
         <Rentabilidade
-          estado={estado} posicoes={derivado.posicoes}
+          estado={estadoEfetivo} posicoes={derivado.posicoes}
           rendimentos={derivado.rendimentos} resumo={derivado.rentabilidade}
         />
       )}
       {aba === 'projecao' && (
-        <Projecao estado={estado} posicoes={derivado.posicoes} geral={derivado.geral} />
+        <Projecao estado={estadoEfetivo} posicoes={derivado.posicoes} geral={derivado.geral} />
       )}
-      {aba === 'config' && <Configuracoes estado={estado} onMudar={mudar} />}
+      {aba === 'config' && (
+        <Configuracoes
+          estado={estado} onMudar={mudar}
+          cdi={cdi} onAtualizarCdi={() => atualizarCdi(true)}
+        />
+      )}
 
       <p className={css.nota}>
         Os dados ficam <strong>neste navegador</strong> (localStorage), não no banco do app.
         Limpar os dados do site apaga tudo.
+        {cdi && ` · CDI de ${cdi.data} (Banco Central)`}
         {salvoEm && ` · salvo às ${salvoEm}`}
       </p>
     </div>

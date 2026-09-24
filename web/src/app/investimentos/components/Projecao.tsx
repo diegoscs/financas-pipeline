@@ -33,9 +33,9 @@ export function Projecao({ estado, posicoes, geral }: {
 
   const sims = useMemo(() => {
     const out = {} as Record<NomeCenario, ReturnType<typeof projetar>>;
-    for (const c of ORDEM) out[c] = projetar(posicoes, estado.premissas, c);
+    for (const c of ORDEM) out[c] = projetar(estado.ativos, posicoes, estado.premissas, c);
     return out;
-  }, [posicoes, estado.premissas]);
+  }, [estado.ativos, posicoes, estado.premissas]);
 
   const serie = useMemo(() => sims.conservador.map((_, i) => {
     const linha: Record<string, unknown> = { rotulo: rotuloCompetencia(sims.conservador[i].competencia) };

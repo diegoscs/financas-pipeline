@@ -108,7 +108,16 @@ function limparAtivos(v: unknown): Ativo[] {
     const t = texto(o.ticker).trim().toUpperCase();
     const ticker = t ? t : undefined;
 
-    return [{ id, nome, classe, modo, ...(ticker ? { ticker } : {}) }];
+    // Percentual do CDI: só positivo faz sentido. Zero ou negativo seria uma
+    // aplicação que não rende ou que come o saldo, e o campo não é para isso.
+    const p = numOpcional(o.percentualCdi);
+    const percentualCdi = p !== undefined && p > 0 ? p : undefined;
+
+    return [{
+      id, nome, classe, modo,
+      ...(ticker ? { ticker } : {}),
+      ...(percentualCdi !== undefined ? { percentualCdi } : {}),
+    }];
   });
 }
 
@@ -166,6 +175,9 @@ function limparPremissas(v: unknown): Premissas {
     liquido2027: num(o.liquido2027, p.liquido2027),
     cdi2026: num(o.cdi2026, p.cdi2026),
     cdi2027: num(o.cdi2027, p.cdi2027),
+    // Só `false` explícito desliga. Qualquer outra coisa — ausente, lixo,
+    // estado gravado antes do campo existir — mantém o automático.
+    cdiAutomatico: o.cdiAutomatico !== false,
     ir: num(o.ir, p.ir),
     dividendoFii: num(o.dividendoFii, p.dividendoFii),
     valorizacaoCota: num(o.valorizacaoCota, p.valorizacaoCota),

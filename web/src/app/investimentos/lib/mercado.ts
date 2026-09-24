@@ -17,8 +17,8 @@
  */
 import { supabase } from '@/lib/supabase';
 import {
-  MAX_TICKERS, comCotacoes, gravarCache, lerCache, planejarBusca,
-  type Cotacao,
+  MAX_TICKERS, cdiEstaFresco, comCotacoes, gravarCache, gravarCdi, lerCache, lerCdi, planejarBusca,
+  type CdiGuardado, type Cotacao,
 } from './cotacaoCache';
 
 export interface Cdi {
@@ -82,11 +82,32 @@ export async function buscarCotacoes(tickers: string[], agora = Date.now()): Pro
 }
 
 /**
- * CDI atual, para preencher as premissas.
+ * CDI atual, do Banco Central, com cache de um dia.
  *
- * A rota devolve o diário e o anual composto; as premissas guardam o anual,
- * que é como a taxa é anunciada e conferida.
+ * A série 12 só publica em dia útil, então buscar mais de uma vez por dia
+ * devolve o mesmo número — e a rota já aplica o mesmo critério antes de ir ao
+ * BCB. O cache aqui evita até a ida ao servidor.
+ *
+ * `forcar` pula o cache, para o botão de atualizar da tela.
  */
-export function buscarCdi(): Promise<Cdi> {
-  return pedir<Cdi>({ cdi: '1' });
+export async function buscarCdi(forcar = false, agora = Date.now()): Promise<CdiGuardado> {
+  if (!forcar) {
+    const guardado = lerCdi();
+    if (cdiEstaFresco(guardado, agora)) return guardado!;
+  }
+
+  const c = await pedir<Cdi>({ cdi: '1' });
+  const novo: CdiGuardado = { diario: c.diario, anual: c.anual, data: c.data, buscadoEm: agora };
+  gravarCdi(novo);
+  return novo;
+}
+
+/**
+ * CDI de partida, sem ir à rede.
+ *
+ * Serve para a primeira renderização já sair com a taxa de ontem em vez de
+ * piscar o valor digitado e trocar meio segundo depois.
+ */
+export function cdiDoCache(): CdiGuardado | null {
+  return lerCdi();
 }

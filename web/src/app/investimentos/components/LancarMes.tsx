@@ -103,6 +103,21 @@ export function LancarMes({ estado, onMudar }: {
    * Só mexe no campo `preco`. A quantidade de cotas continua manual — ela é
    * o que você comprou, não o que o mercado informa, e nenhuma API sabe isso.
    */
+  /**
+   * Busca sozinho ao abrir a aba.
+   *
+   * O cache é quem torna isso seguro: preço com menos de 30 minutos não vai à
+   * rede, então reabrir a aba dez vezes no mesmo dia não gasta dez
+   * requisições. Sem o cache isto seria um jeito rápido de torrar a cota.
+   *
+   * Roda uma vez por montagem, e não a cada mudança de competência: trocar de
+   * mês não muda o preço de hoje.
+   */
+  useEffect(() => {
+    if (comTicker.length > 0) buscarPrecos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function buscarPrecos() {
     if (comTicker.length === 0) return;
     setBuscando(true);

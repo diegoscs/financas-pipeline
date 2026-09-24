@@ -12,7 +12,8 @@
  */
 import assert from 'node:assert/strict';
 import {
-  CENARIOS, baseProjecao, posicaoAtivo, posicoes, projetar, proximaCompetencia,
+  CENARIOS, PERCENTUAL_CDI_PADRAO, baseProjecao, percentualCdiCarteira, posicaoAtivo,
+  posicoes, projetar, proximaCompetencia,
   rendimentos, resumoGeral, resumoRentabilidade, rotuloCompetencia,
   sequenciaCompetencias, slug, taxaRendaFixaMes,
 } from './calc';
@@ -138,6 +139,53 @@ teste('taxa da renda fixa: CDI anual vira mês e desconta IR', () => {
   perto(taxaRendaFixaMes(13.65, 0), 0.01071983, 1e-8);
 });
 
+teste('percentual do CDI multiplica a taxa, não o montante', () => {
+  // "110% do CDI" é 110% da TAXA. Sem percentual, o padrão é 100%.
+  perto(taxaRendaFixaMes(13.65, 20, 100), taxaRendaFixaMes(13.65, 20), 1e-12);
+  perto(taxaRendaFixaMes(13.65, 20, 110), 0.008575864 * 1.1, 1e-8);
+  perto(taxaRendaFixaMes(13.65, 20, 85), 0.008575864 * 0.85, 1e-8);
+});
+
+teste('percentual da carteira é pesado pelo saldo, não pela média simples', () => {
+  // R$ 9.000 a 100% e R$ 1.000 a 110% dão 101%, não 105%.
+  const grande: Ativo = { id: 'g', nome: 'Grande', classe: 'renda_fixa', modo: 'saldo' };
+  const pequena: Ativo = { id: 'p', nome: 'Pequena', classe: 'renda_fixa', modo: 'saldo', percentualCdi: 110 };
+  const lancs: Lancamento[] = [
+    { competencia: '2026-10', itens: { g: { aporte: 0, saldo: 9000 }, p: { aporte: 0, saldo: 1000 } } },
+  ];
+  const serie = posicoes([grande, pequena], lancs);
+  perto(percentualCdiCarteira([grande, pequena], serie[0]), 101, 1e-9);
+});
+
+teste('sem renda fixa, ou sem saldo, o percentual é 100', () => {
+  const fii: Ativo = { id: 'f', nome: 'FII', classe: 'fii', modo: 'saldo' };
+  const lancs: Lancamento[] = [{ competencia: '2026-10', itens: { f: { aporte: 0, saldo: 5000 } } }];
+  perto(percentualCdiCarteira([fii], posicoes([fii], lancs)[0]), PERCENTUAL_CDI_PADRAO);
+  perto(percentualCdiCarteira([], undefined), PERCENTUAL_CDI_PADRAO);
+});
+
+teste('saldo zerado não puxa a média', () => {
+  // Uma aplicação encerrada não deve continuar pesando no percentual médio.
+  const viva: Ativo = { id: 'v', nome: 'Viva', classe: 'renda_fixa', modo: 'saldo', percentualCdi: 110 };
+  const morta: Ativo = { id: 'm', nome: 'Morta', classe: 'renda_fixa', modo: 'saldo', percentualCdi: 80 };
+  const lancs: Lancamento[] = [
+    { competencia: '2026-10', itens: { v: { aporte: 0, saldo: 1000 }, m: { aporte: 0, saldo: 0 } } },
+  ];
+  const serie = posicoes([viva, morta], lancs);
+  perto(percentualCdiCarteira([viva, morta], serie[0]), 110);
+});
+
+teste('a projeção honra o percentual do CDI da caixinha', () => {
+  const caixinha110: Ativo = { ...caixinha, percentualCdi: 110 };
+  const lancs: Lancamento[] = [
+    { competencia: '2026-10', itens: { caixinha: { aporte: 0, saldo: 1000 } } },
+  ];
+  const serie = posicoes([caixinha110], lancs);
+  const p = projetar([caixinha110], serie, PREM, 'conservador');
+  // 1000 × 0,008575864 × 1,10 = 9,433450
+  perto(p[0].rendimento, 8.575864 * 1.1, 1e-5);
+});
+
 teste('projeção ancora no mês seguinte ao último fechamento', () => {
   const lancs: Lancamento[] = [
     { competencia: '2026-09', itens: { caixinha: { aporte: 0, saldo: 500 } } },
@@ -150,7 +198,7 @@ teste('projeção ancora no mês seguinte ao último fechamento', () => {
 
 teste('sem lançamento não há projeção', () => {
   assert.equal(baseProjecao([]), null);
-  assert.deepEqual(projetar([], PREM, 'conservador'), []);
+  assert.deepEqual(projetar([], [], PREM, 'conservador'), []);
 });
 
 teste('caso conhecido: R$ 1.000 em RF, conservador, primeiro mês', () => {
@@ -162,7 +210,7 @@ teste('caso conhecido: R$ 1.000 em RF, conservador, primeiro mês', () => {
   const lancs: Lancamento[] = [
     { competencia: '2026-10', itens: { caixinha: { aporte: 0, saldo: 1000 } } },
   ];
-  const p = projetar(posicoes([caixinha], lancs), PREM, 'conservador');
+  const p = projetar([caixinha], posicoes([caixinha], lancs), PREM, 'conservador');
 
   assert.equal(p.length, 15, 'horizonte de 15 meses');
   assert.equal(p[0].competencia, '2026-11');
@@ -180,7 +228,7 @@ teste('o aporte só rende a partir do mês seguinte', () => {
   const lancs: Lancamento[] = [
     { competencia: '2026-10', itens: { caixinha: { aporte: 0, saldo: 1000 } } },
   ];
-  const p = projetar(posicoes([caixinha], lancs), PREM, 'conservador');
+  const p = projetar([caixinha], posicoes([caixinha], lancs), PREM, 'conservador');
   perto(p[1].rendimento, 2058.575864 * 0.008575864, 1e-4);
 });
 
@@ -190,13 +238,13 @@ teste('cenários dividem o aporte na proporção anunciada', () => {
   ];
   const serie = posicoes([caixinha], lancs);
 
-  const misto = projetar(serie, PREM, 'misto')[0];
+  const misto = projetar([caixinha], serie, PREM, 'misto')[0];
   perto(misto.renda_fixa, 525);   // 50% de 1.050
   perto(misto.fii, 315);          // 30%
   perto(misto.acao, 210);         // 20%
   perto(misto.total, 1050);
 
-  const arrojado = projetar(serie, PREM, 'arrojado')[0];
+  const arrojado = projetar([caixinha], serie, PREM, 'arrojado')[0];
   perto(arrojado.renda_fixa, 210);
   perto(arrojado.acao, 525);
 });
@@ -214,7 +262,7 @@ teste('13º entra no aporte só na competência configurada', () => {
   const lancs: Lancamento[] = [
     { competencia: '2026-10', itens: { caixinha: { aporte: 0, saldo: 0 } } },
   ];
-  const p = projetar(posicoes([caixinha], lancs), prem, 'conservador');
+  const p = projetar([caixinha], posicoes([caixinha], lancs), prem, 'conservador');
   perto(p[0].aporte, 1050);          // nov/26, sem 13º
   perto(p[1].aporte, 1050 + 1625);   // dez/26
   perto(p[2].aporte, 3360 - 1700);   // jan/27 já usa o líquido de 2027
@@ -224,7 +272,7 @@ teste('virada de ano troca CDI e salário', () => {
   const lancs: Lancamento[] = [
     { competencia: '2026-11', itens: { caixinha: { aporte: 0, saldo: 10_000 } } },
   ];
-  const p = projetar(posicoes([caixinha], lancs), PREM, 'conservador');
+  const p = projetar([caixinha], posicoes([caixinha], lancs), PREM, 'conservador');
   assert.equal(p[0].competencia, '2026-12');
   assert.equal(p[1].competencia, '2027-01');
   // dez/26 rende ao CDI de 2026 sobre 10.000; jan/27 ao de 2027, que é menor,
@@ -239,7 +287,7 @@ teste('cripto projeta junto com ações', () => {
   const lancs: Lancamento[] = [
     { competencia: '2026-10', itens: { btc: { aporte: 0, saldo: 1000 } } },
   ];
-  const p = projetar(posicoes([btc], lancs), PREM, 'conservador')[0];
+  const p = projetar([btc], posicoes([btc], lancs), PREM, 'conservador')[0];
   perto(p.acao, 1000 * 1.011);
 });
 

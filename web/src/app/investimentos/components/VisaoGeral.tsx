@@ -28,8 +28,8 @@ export function VisaoGeral({ estado, posicoes, geral }: {
   const [modo, setModo] = useState<ModoComposicao>('valor');
 
   const projecao = useMemo(
-    () => projetar(posicoes, estado.premissas, 'conservador'),
-    [posicoes, estado.premissas],
+    () => projetar(estado.ativos, posicoes, estado.premissas, 'conservador'),
+    [estado.ativos, posicoes, estado.premissas],
   );
 
   /**

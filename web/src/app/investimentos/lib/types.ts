@@ -33,6 +33,19 @@ export interface Ativo {
    * continua funcionando — só não busca cotação sozinho.
    */
   ticker?: string;
+  /**
+   * Quanto do CDI a aplicação paga, EM PERCENTUAL: 110 = 110% do CDI.
+   *
+   * Só faz sentido em renda fixa, e só afeta a PROJEÇÃO — o rendimento já
+   * realizado é medido pelos saldos que você digita, então uma caixinha a
+   * 110% aparece na Rentabilidade com ou sem este campo preenchido.
+   *
+   * Ausente vale 100%. Guardado em percentual, e não em fração como a aba
+   * Carteira faz, porque aqui todas as outras premissas já são percentuais
+   * (CDI 13,65 · IR 20 · dividendo 1,0) e misturar as duas convenções no
+   * mesmo formulário é convite a erro de fator 100.
+   */
+  percentualCdi?: number;
 }
 
 export interface ItemLancamento {
@@ -58,9 +71,22 @@ export interface Premissas {
   gasto: number;
   liquido2026: number;
   liquido2027: number;
-  /** CDI em % ao ano */
+  /**
+   * CDI em % ao ano.
+   *
+   * Com `cdiAutomatico` ligado — que é o padrão — estes dois campos viram
+   * rede de segurança: a projeção usa a taxa que vem do Banco Central, e só
+   * cai para cá se a busca falhar e não houver nada em cache.
+   */
   cdi2026: number;
   cdi2027: number;
+  /**
+   * Buscar o CDI da série 12 do Banco Central em vez de usar o digitado.
+   *
+   * Ausente conta como ligado: é o padrão, e um estado gravado antes deste
+   * campo existir não pode cair no modo manual sem ninguém ter pedido.
+   */
+  cdiAutomatico?: boolean;
   /** IR sobre o rendimento da renda fixa, em % */
   ir: number;
   /** % ao mês */

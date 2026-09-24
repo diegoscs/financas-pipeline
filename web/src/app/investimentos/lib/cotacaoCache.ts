@@ -106,3 +106,50 @@ export function esquecerCotacoes(): void {
   if (typeof window === 'undefined') return;
   try { window.localStorage.removeItem(CHAVE_CACHE); } catch { /* idem */ }
 }
+
+// ── CDI ────────────────────────────────────────────────────────────────────
+//
+// Validade maior que a da cotação porque a natureza do dado é outra: a série
+// 12 do Banco Central só publica em dia útil, então buscar de hora em hora
+// devolveria o mesmo número. Um dia é o mesmo critério que a própria rota usa
+// antes de ir ao BCB.
+
+export const VALIDADE_CDI_MS = 24 * 60 * 60 * 1000;
+
+const CHAVE_CDI = 'investimentos:cdi:v1';
+
+export interface CdiGuardado {
+  /** percentual DIÁRIO */
+  diario: number;
+  /** equivalente anual composto, em % — é o que entra na projeção */
+  anual: number;
+  /** data da série, não a da busca */
+  data: string;
+  buscadoEm: number;
+}
+
+/** Mesma regra do frescor de cotação, com a validade do CDI. */
+export function cdiEstaFresco(c: CdiGuardado | null, agora: number, validade = VALIDADE_CDI_MS): boolean {
+  if (!c) return false;
+  const idade = agora - c.buscadoEm;
+  return idade >= 0 && idade < validade;
+}
+
+export function lerCdi(): CdiGuardado | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const cru = window.localStorage.getItem(CHAVE_CDI);
+    if (!cru) return null;
+    const c = JSON.parse(cru) as CdiGuardado;
+    // Vindo do disco: sem checar, um `anual` corrompido viraria NaN em toda a
+    // projeção sem nenhum erro no caminho.
+    return Number.isFinite(c?.anual) && Number.isFinite(c?.buscadoEm) ? c : null;
+  } catch {
+    return null;
+  }
+}
+
+export function gravarCdi(c: CdiGuardado): void {
+  if (typeof window === 'undefined') return;
+  try { window.localStorage.setItem(CHAVE_CDI, JSON.stringify(c)); } catch { /* sem cache */ }
+}

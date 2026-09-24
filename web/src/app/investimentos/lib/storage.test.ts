@@ -144,8 +144,11 @@ teste('premissa que falta vem do padrão, não vem undefined', () => {
   assert.equal(s.premissas.gasto, 2000);
   assert.equal(s.premissas.cdi2026, PREMISSAS_PADRAO.cdi2026);
   assert.equal(s.premissas.retornoAcoes, PREMISSAS_PADRAO.retornoAcoes);
-  for (const v of Object.values(s.premissas)) {
-    assert.ok(typeof v === 'object' || Number.isFinite(v), 'nenhuma premissa pode ser NaN');
+  // A checagem é sobre os NÚMEROS: o 13º é objeto e `cdiAutomatico` é
+  // booleano, e nenhum dos dois pode virar NaN por definição.
+  for (const [nome, v] of Object.entries(s.premissas)) {
+    if (typeof v !== 'number') continue;
+    assert.ok(Number.isFinite(v), `premissa ${nome} virou NaN`);
   }
 });
 
@@ -173,6 +176,35 @@ teste('13º ausente traz o padrão', () => {
 teste('13º com competência inválida é descartado', () => {
   const s = normalizar({ premissas: { decimoTerceiro: { 'nov/26': 1625, '2026-12': 1346 } } });
   assert.deepEqual(s.premissas.decimoTerceiro, { '2026-12': 1346 });
+});
+
+teste('CDI automático é o padrão; só `false` explícito desliga', () => {
+  // Estado gravado antes deste campo existir não pode cair no modo manual
+  // sem ninguém ter pedido.
+  assert.equal(normalizar({}).premissas.cdiAutomatico, true);
+  assert.equal(normalizar({ premissas: {} }).premissas.cdiAutomatico, true);
+  assert.equal(normalizar({ premissas: { cdiAutomatico: 'sim' } }).premissas.cdiAutomatico, true);
+  assert.equal(normalizar({ premissas: { cdiAutomatico: false } }).premissas.cdiAutomatico, false);
+});
+
+// ── percentual do CDI por ativo ────────────────────────────────────────────
+
+teste('percentual do CDI sobrevive ao disco', () => {
+  const s = normalizar({ ativos: [
+    { id: 'cx', nome: 'Caixinha', classe: 'renda_fixa', modo: 'saldo', percentualCdi: 110 },
+  ] });
+  assert.equal(s.ativos[0].percentualCdi, 110);
+});
+
+teste('percentual zero, negativo ou lixo vira ausente, não zero', () => {
+  // Ausente significa "100% do CDI". Guardar zero faria a projeção tratar a
+  // aplicação como se não rendesse nada.
+  for (const v of [0, -10, 'muito', null, NaN]) {
+    const s = normalizar({ ativos: [
+      { id: 'x', nome: 'X', classe: 'renda_fixa', modo: 'saldo', percentualCdi: v },
+    ] });
+    assert.equal(s.ativos[0].percentualCdi, undefined, `falhou para ${JSON.stringify(v)}`);
+  }
 });
 
 // ── adapter local ──────────────────────────────────────────────────────────

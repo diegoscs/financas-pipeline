@@ -7,10 +7,9 @@
  * há o que lançar, logo não há posição, logo não há rendimento nem projeção.
  */
 import { useState } from 'react';
-import { CLASSES, slug } from '../lib/calc';
+import { CLASSES, PERCENTUAL_CDI_PADRAO, percentualCdiCarteira, posicoes, slug } from '../lib/calc';
 import { dinheiro, pct } from '../lib/formato';
-import { TICKER_VALIDO } from '../lib/cotacaoCache';
-import { buscarCdi } from '../lib/mercado';
+import { TICKER_VALIDO, type CdiGuardado } from '../lib/cotacaoCache';
 import type { Ativo, Classe, InvestState, Modo, Premissas } from '../lib/types';
 import css from '../investimentos.module.css';
 import { Cartao, Tabela } from './ui';
@@ -22,14 +21,17 @@ const MODOS: { id: Modo; rotulo: string; ajuda: string }[] = [
 
 const nomeClasse = (c: Classe) => CLASSES.find((x) => x.id === c)?.nome ?? c;
 
-export function Configuracoes({ estado, onMudar }: {
+export function Configuracoes({ estado, onMudar, cdi, onAtualizarCdi }: {
   estado: InvestState;
   onMudar: (novo: InvestState) => void;
+  cdi: CdiGuardado | null;
+  onAtualizarCdi: () => void;
 }) {
   const [nome, setNome] = useState('');
   const [classe, setClasse] = useState<Classe>('renda_fixa');
   const [modo, setModo] = useState<Modo>('saldo');
   const [ticker, setTicker] = useState('');
+  const [percentualCdi, setPercentualCdi] = useState('');
   const [erro, setErro] = useState<string | null>(null);
 
   function adicionar() {
@@ -49,12 +51,37 @@ export function Configuracoes({ estado, onMudar }: {
       return;
     }
 
+    const p = percentualCdi === '' ? undefined : Number(percentualCdi);
+    if (p !== undefined && !(p > 0)) {
+      setErro('O percentual do CDI tem que ser maior que zero.');
+      return;
+    }
+
     setErro(null);
     setNome('');
     setTicker('');
+    setPercentualCdi('');
     onMudar({
       ...estado,
-      ativos: [...estado.ativos, { id, nome: limpo, classe, modo, ...(t ? { ticker: t } : {}) }],
+      ativos: [...estado.ativos, {
+        id, nome: limpo, classe, modo,
+        ...(t ? { ticker: t } : {}),
+        ...(p !== undefined ? { percentualCdi: p } : {}),
+      }],
+    });
+  }
+
+  /** Muda o percentual do CDI de um ativo já cadastrado, direto na tabela. */
+  function mudarPercentual(id: string, valor: string) {
+    const p = valor === '' ? undefined : Number(valor);
+    onMudar({
+      ...estado,
+      ativos: estado.ativos.map((a) => {
+        if (a.id !== id) return a;
+        const { percentualCdi: _, ...resto } = a;
+        void _;
+        return p !== undefined && p > 0 ? { ...resto, percentualCdi: p } : resto;
+      }),
     });
   }
 
@@ -90,8 +117,21 @@ export function Configuracoes({ estado, onMudar }: {
     onMudar({ ...estado, premissas: { ...estado.premissas, decimoTerceiro: resto } });
   }
 
+  function mudarAuto(valor: boolean) {
+    onMudar({ ...estado, premissas: { ...estado.premissas, cdiAutomatico: valor } });
+  }
+
   const p = estado.premissas;
+  // Ausente conta como ligado: é o padrão, e um estado gravado antes deste
+  // campo existir não deve cair no modo manual sem ninguém ter pedido.
+  const auto = p.cdiAutomatico !== false;
   const decimos = Object.entries(p.decimoTerceiro).sort(([a], [b]) => a.localeCompare(b));
+
+  /** O que a projeção realmente vai usar na renda fixa, já ponderado. */
+  const pctCarteira = percentualCdiCarteira(
+    estado.ativos,
+    posicoes(estado.ativos, estado.lancamentos).slice(-1)[0],
+  );
 
   return (
     <>
@@ -127,6 +167,16 @@ export function Configuracoes({ estado, onMudar }: {
               maxLength={6}
             />
           </label>
+          {classe === 'renda_fixa' && (
+            <label className={css.campo}>
+              <span>Rende quantos % do CDI</span>
+              <input
+                type="number" step="1" min="1" value={percentualCdi}
+                onChange={(e) => setPercentualCdi(e.target.value.replace(/[eE]/g, ''))}
+                placeholder="100"
+              />
+            </label>
+          )}
         </div>
 
         <div className={css.acoes}>
@@ -141,7 +191,7 @@ export function Configuracoes({ estado, onMudar }: {
           <div style={{ marginTop: 16 }}>
             <Tabela>
               <thead>
-                <tr><th>Ativo</th><th>Classe</th><th>Modo</th><th>B3</th><th>Identificador</th><th /></tr>
+                <tr><th>Ativo</th><th>Classe</th><th>Modo</th><th>B3</th><th>% do CDI</th><th /></tr>
               </thead>
               <tbody>
                 {estado.ativos.map((a: Ativo) => (
@@ -150,7 +200,16 @@ export function Configuracoes({ estado, onMudar }: {
                     <td>{nomeClasse(a.classe)}</td>
                     <td>{a.modo === 'cotizado' ? 'Cotizado' : 'Saldo'}</td>
                     <td>{a.ticker ?? '—'}</td>
-                    <td>{a.id}</td>
+                    <td>
+                      {a.classe === 'renda_fixa' ? (
+                        <input
+                          type="number" step="1" min="1" style={{ width: 72 }}
+                          value={a.percentualCdi ?? ''}
+                          placeholder={String(PERCENTUAL_CDI_PADRAO)}
+                          onChange={(e) => mudarPercentual(a.id, e.target.value.replace(/[eE]/g, ''))}
+                        />
+                      ) : '—'}
+                    </td>
                     <td>
                       <button type="button" className={css.perigo} onClick={() => remover(a.id)}>
                         remover
@@ -169,6 +228,33 @@ export function Configuracoes({ estado, onMudar }: {
       </Cartao>
 
       <Cartao titulo="Premissas" sub="Valem só para a projeção. O rendimento já realizado é medido, nunca estimado.">
+        <div className={css.camposLinha} style={{ marginBottom: 14 }}>
+          <label className={css.campo} style={{ flex: '1 1 auto' }}>
+            <span>CDI</span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.84rem', paddingTop: 6 }}>
+              <input
+                type="checkbox" checked={auto} style={{ width: 'auto', minHeight: 0 }}
+                onChange={(e) => mudarAuto(e.target.checked)}
+              />
+              Usar a taxa do Banco Central automaticamente
+            </label>
+          </label>
+
+          {auto && cdi && (
+            <span className={css.status}>
+              <strong className={css.mono}>{pct(cdi.anual, 2)}</strong> a.a. · série de {cdi.data}
+            </span>
+          )}
+          {auto && !cdi && (
+            <span className={css.status}>
+              ainda não consegui a taxa — a projeção está usando {pct(p.cdi2026, 2)} guardado
+            </span>
+          )}
+          <button type="button" className={css.linkEditar} onClick={onAtualizarCdi}>
+            atualizar agora
+          </button>
+        </div>
+
         <div className={css.campos}>
           <CampoNumero rotulo="Custo de vida (R$/mês)" valor={p.gasto} passo={50}
                        onMudar={(v) => mudarPremissa('gasto', v)} />
@@ -176,10 +262,14 @@ export function Configuracoes({ estado, onMudar }: {
                        onMudar={(v) => mudarPremissa('liquido2026', v)} />
           <CampoNumero rotulo="Líquido 2027 (R$/mês)" valor={p.liquido2027} passo={50}
                        onMudar={(v) => mudarPremissa('liquido2027', v)} />
-          <CampoNumero rotulo="CDI 2026 (% a.a.)" valor={p.cdi2026} passo={0.05}
-                       onMudar={(v) => mudarPremissa('cdi2026', v)} />
-          <CampoNumero rotulo="CDI 2027 (% a.a.)" valor={p.cdi2027} passo={0.05}
-                       onMudar={(v) => mudarPremissa('cdi2027', v)} />
+          {!auto && (
+            <>
+              <CampoNumero rotulo="CDI 2026 (% a.a.)" valor={p.cdi2026} passo={0.05}
+                           onMudar={(v) => mudarPremissa('cdi2026', v)} />
+              <CampoNumero rotulo="CDI 2027 (% a.a.)" valor={p.cdi2027} passo={0.05}
+                           onMudar={(v) => mudarPremissa('cdi2027', v)} />
+            </>
+          )}
           <CampoNumero rotulo="IR na renda fixa (%)" valor={p.ir} passo={1}
                        onMudar={(v) => mudarPremissa('ir', v)} />
           <CampoNumero rotulo="Dividendo FII (% ao mês)" valor={p.dividendoFii} passo={0.05}
@@ -190,16 +280,16 @@ export function Configuracoes({ estado, onMudar }: {
                        onMudar={(v) => mudarPremissa('retornoAcoes', v)} />
         </div>
 
-        <BuscarCdi
-          onAplicar={(anual) => onMudar({
-            ...estado,
-            premissas: { ...estado.premissas, cdi2026: anual, cdi2027: anual },
-          })}
-        />
-
         <p className={css.nota}>
-          A projeção da renda fixa usa <code>((1 + CDI)^(1/12) − 1) × (1 − IR)</code>; FII soma
-          dividendo e valorização; ações e cripto usam o retorno de ações. Tudo recalcula na hora.
+          A projeção da renda fixa usa{' '}
+          <code>((1 + CDI)^(1/12) − 1) × % do CDI × (1 − IR)</code>; FII soma dividendo e
+          valorização; ações e cripto usam o retorno de ações. Tudo recalcula na hora.
+          {estado.ativos.some((a) => a.classe === 'renda_fixa') && (
+            <>
+              {' '}Sua renda fixa hoje rende, na média ponderada pelo saldo,{' '}
+              <strong>{pct(pctCarteira, 0)} do CDI</strong>.
+            </>
+          )}
         </p>
       </Cartao>
 
@@ -238,46 +328,6 @@ export function Configuracoes({ estado, onMudar }: {
  * 2027 com o CDI de hoje é uma escolha, não um fato. O botão mostra o número
  * e espera a confirmação.
  */
-function BuscarCdi({ onAplicar }: { onAplicar: (anual: number) => void }) {
-  const [achado, setAchado] = useState<{ anual: number; data: string } | null>(null);
-  const [erro, setErro] = useState<string | null>(null);
-  const [ocupado, setOcupado] = useState(false);
-
-  async function buscar() {
-    setOcupado(true); setErro(null);
-    try {
-      const cdi = await buscarCdi();
-      setAchado({ anual: cdi.anual, data: cdi.data });
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Não consegui consultar o CDI.');
-    } finally {
-      setOcupado(false);
-    }
-  }
-
-  return (
-    <div className={css.acoes}>
-      <button type="button" className={css.botao} onClick={buscar} disabled={ocupado}>
-        {ocupado ? 'Consultando…' : 'Buscar CDI atual'}
-      </button>
-
-      {achado && (
-        <>
-          <span className={css.status}>
-            CDI de {achado.data}: <strong className={css.mono}>{pct(achado.anual, 2)}</strong> a.a.
-          </span>
-          <button
-            type="button" className={css.botao}
-            onClick={() => { onAplicar(achado.anual); setAchado(null); }}
-          >
-            Usar nos dois anos
-          </button>
-        </>
-      )}
-      {erro && <span className={css.statusErro}>{erro}</span>}
-    </div>
-  );
-}
 
 function CampoNumero({ rotulo, valor, passo, onMudar }: {
   rotulo: string; valor: number; passo: number; onMudar: (v: number) => void;

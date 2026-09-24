@@ -9,7 +9,8 @@
  */
 import assert from 'node:assert/strict';
 import {
-  MAX_TICKERS, TICKER_VALIDO, VALIDADE_MS, comCotacoes, estaFresca, planejarBusca,
+  MAX_TICKERS, TICKER_VALIDO, VALIDADE_CDI_MS, VALIDADE_MS, cdiEstaFresco, comCotacoes,
+  estaFresca, planejarBusca,
   type Cache,
 } from './cotacaoCache';
 
@@ -145,6 +146,30 @@ teste('ticker que não voltou continua no cache com o preço antigo', () => {
   const antes: Cache = { VALE3: entrada('VALE3', 60, AGORA - 10) };
   const depois = comCotacoes(antes, [{ ticker: 'PETR4', preco: 31, data: '2026-09-23' }], AGORA);
   assert.equal(depois.VALE3.preco, 60);
+});
+
+// ── CDI ────────────────────────────────────────────────────────────────────
+
+const cdi = (buscadoEm: number) => ({ diario: 0.0534, anual: 14.4, data: '2026-09-22', buscadoEm });
+
+teste('CDI sem cache não está fresco', () => {
+  assert.equal(cdiEstaFresco(null, AGORA), false);
+});
+
+teste('CDI vale um dia, não meia hora', () => {
+  // A série 12 do BCB só publica em dia útil: buscar de hora em hora
+  // devolveria o mesmo número e gastaria ida ao servidor à toa.
+  assert.equal(cdiEstaFresco(cdi(AGORA - 60 * 60 * 1000), AGORA), true, 'uma hora ainda vale');
+  assert.equal(cdiEstaFresco(cdi(AGORA - VALIDADE_CDI_MS + 1000), AGORA), true);
+  assert.equal(cdiEstaFresco(cdi(AGORA - VALIDADE_CDI_MS), AGORA), false);
+});
+
+teste('CDI com carimbo no futuro conta como velho', () => {
+  assert.equal(cdiEstaFresco(cdi(AGORA + 60_000), AGORA), false);
+});
+
+teste('a validade do CDI é bem maior que a da cotação', () => {
+  assert.ok(VALIDADE_CDI_MS > VALIDADE_MS * 10);
 });
 
 // ── saída ──────────────────────────────────────────────────────────────────

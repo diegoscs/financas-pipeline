@@ -185,10 +185,51 @@ function doAno<T>(comp: string, em2026: T, depois: T): T {
   return Number(comp.slice(0, 4)) <= 2026 ? em2026 : depois;
 }
 
-/** % ao mês da renda fixa: CDI anual convertido para mês, já líquido de IR. */
-export function taxaRendaFixaMes(cdiAnual: number, ir: number): number {
+/** Sem `percentualCdi` declarado, a aplicação paga o CDI cheio. */
+export const PERCENTUAL_CDI_PADRAO = 100;
+
+/**
+ * % ao mês da renda fixa: CDI anual convertido para mês, corrigido pelo
+ * percentual que a aplicação paga, e líquido de IR.
+ *
+ * O percentual multiplica a TAXA, não o montante — é o que "110% do CDI"
+ * significa e é como a aba Carteira também calcula. Uma caixinha a 110% do
+ * CDI de 13,65% a.a. com 20% de IR rende 0,94% ao mês, não 1,07%.
+ */
+export function taxaRendaFixaMes(cdiAnual: number, ir: number, percentualCdi = PERCENTUAL_CDI_PADRAO): number {
   const mensalBruto = Math.pow(1 + cdiAnual / 100, 1 / 12) - 1;
-  return mensalBruto * (1 - ir / 100);
+  return mensalBruto * (percentualCdi / 100) * (1 - ir / 100);
+}
+
+/**
+ * Percentual do CDI da carteira de renda fixa, ponderado pelo saldo.
+ *
+ * A projeção trabalha com três baldes (renda fixa, FII, ações), não ativo a
+ * ativo. Para honrar caixinhas com percentuais diferentes sem multiplicar o
+ * número de baldes, o balde de renda fixa cresce ao percentual médio, pesado
+ * por quanto cada aplicação representa: R$ 9.000 a 100% e R$ 1.000 a 110%
+ * dão 101%, não 105%.
+ *
+ * Aproximação consciente: aportes futuros entram no balde já misturado, como
+ * se fossem distribuídos na mesma proporção de hoje. Projetar cada aplicação
+ * em separado exigiria decidir para qual delas vai cada aporte, o que é uma
+ * premissa que ninguém tem.
+ */
+export function percentualCdiCarteira(ativos: Ativo[], ultima: Posicao | undefined): number {
+  if (!ultima) return PERCENTUAL_CDI_PADRAO;
+
+  let saldoTotal = 0;
+  let somaPesada = 0;
+
+  for (const a of ativos) {
+    if (a.classe !== 'renda_fixa') continue;
+    const saldo = ultima.porAtivo[a.id]?.saldo ?? 0;
+    if (saldo <= 0) continue;   // saldo zero não tem peso; negativo não é renda fixa
+    saldoTotal += saldo;
+    somaPesada += saldo * (a.percentualCdi ?? PERCENTUAL_CDI_PADRAO);
+  }
+
+  return saldoTotal > 0 ? somaPesada / saldoTotal : PERCENTUAL_CDI_PADRAO;
 }
 
 /**
@@ -229,6 +270,7 @@ export function baseProjecao(serie: Posicao[]): {
  * o rendimento de um dinheiro que talvez entre no dia 30.
  */
 export function projetar(
+  ativos: Ativo[],
   serie: Posicao[],
   premissas: Premissas,
   cenario: NomeCenario,
@@ -237,6 +279,7 @@ export function projetar(
   const base = baseProjecao(serie);
   if (!base) return [];
 
+  const pctCdi = percentualCdiCarteira(ativos, serie[serie.length - 1]);
   const aloc = CENARIOS[cenario].alocacao;
   let { renda_fixa: rf, fii, acao: ac } = base;
   let aportado = rf + fii + ac;
@@ -246,7 +289,7 @@ export function projetar(
     const antes = rf + fii + ac;
 
     const cdi = doAno(competencia, premissas.cdi2026, premissas.cdi2027);
-    rf *= 1 + taxaRendaFixaMes(cdi, premissas.ir);
+    rf *= 1 + taxaRendaFixaMes(cdi, premissas.ir, pctCdi);
     fii *= 1 + (premissas.dividendoFii + premissas.valorizacaoCota) / 100;
     ac *= 1 + premissas.retornoAcoes / 100;
 
