@@ -25,6 +25,14 @@ export interface Ativo {
   nome: string;
   classe: Classe;
   modo: Modo;
+  /**
+   * Código na B3, quando existe: 'MXRF11', 'PETR4'.
+   *
+   * Separado do `id` de propósito. O id é slug do nome e pode ser
+   * "meu_fii_de_papel"; a brapi só entende o código. Sem ticker o ativo
+   * continua funcionando — só não busca cotação sozinho.
+   */
+  ticker?: string;
 }
 
 export interface ItemLancamento {

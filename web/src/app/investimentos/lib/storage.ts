@@ -102,7 +102,13 @@ function limparAtivos(v: unknown): Ativo[] {
 
     const classe = CLASSES_VALIDAS.includes(o.classe as Classe) ? (o.classe as Classe) : 'renda_fixa';
     const modo = MODOS_VALIDOS.includes(o.modo as Modo) ? (o.modo as Modo) : 'saldo';
-    return [{ id, nome, classe, modo }];
+
+    // Ticker é opcional e sempre maiúsculo: a brapi é sensível a caixa e um
+    // 'mxrf11' gravado em minúscula voltaria "não encontrado" para sempre.
+    const t = texto(o.ticker).trim().toUpperCase();
+    const ticker = t ? t : undefined;
+
+    return [{ id, nome, classe, modo, ...(ticker ? { ticker } : {}) }];
   });
 }
 

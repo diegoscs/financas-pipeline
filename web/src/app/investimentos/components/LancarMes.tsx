@@ -12,6 +12,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { posicaoAtivo } from '../lib/calc';
 import { competenciaAtual, dinheiro } from '../lib/formato';
+import { esquecerCotacoes } from '../lib/cotacaoCache';
+import { buscarCotacoes } from '../lib/mercado';
 import type { InvestState, ItemLancamento, Lancamento } from '../lib/types';
 import css from '../investimentos.module.css';
 import { Cartao, Tabela, Vazio } from './ui';
@@ -28,6 +30,54 @@ export function LancarMes({ estado, onMudar }: {
 }) {
   const [competencia, setCompetencia] = useState(competenciaAtual);
   const [rascunho, setRascunho] = useState<Rascunho>({});
+  const [buscando, setBuscando] = useState(false);
+  const [avisos, setAvisos] = useState<string[]>([]);
+
+  /** Ativos cotizados com código da B3 — só esses dá para buscar. */
+  const comTicker = useMemo(
+    () => estado.ativos.filter((a) => a.modo === 'cotizado' && a.ticker),
+    [estado.ativos],
+  );
+
+  /**
+   * Preenche o preço da cota a partir da brapi.
+   *
+   * Só mexe no campo `preco`. A quantidade de cotas continua manual — ela é
+   * o que você comprou, não o que o mercado informa, e nenhuma API sabe isso.
+   *
+   * O valor entra como sugestão editável: se o fechamento do mês não for o
+   * preço de hoje, você corrige por cima antes de salvar.
+   */
+  async function buscarPrecos() {
+    if (comTicker.length === 0) return;
+    setBuscando(true);
+    setAvisos([]);
+    try {
+      const { cotacoes, erros } = await buscarCotacoes(comTicker.map((a) => a.ticker!));
+      const porTicker = new Map(cotacoes.map((c) => [c.ticker, c]));
+
+      setRascunho((r) => {
+        const novo = { ...r };
+        for (const a of comTicker) {
+          const c = porTicker.get(a.ticker!);
+          if (c) novo[a.id] = { ...(novo[a.id] ?? vazio()), preco: String(c.preco) };
+        }
+        return novo;
+      });
+
+      const naoVieram = comTicker
+        .filter((a) => !porTicker.has(a.ticker!))
+        .map((a) => `${a.nome} (${a.ticker})`);
+      setAvisos([
+        ...erros,
+        ...(naoVieram.length ? [`Sem preço para: ${naoVieram.join(', ')}.`] : []),
+      ]);
+    } catch (e) {
+      setAvisos([e instanceof Error ? e.message : 'Não consegui consultar as cotações.']);
+    } finally {
+      setBuscando(false);
+    }
+  }
 
   const jaLancado = useMemo(
     () => estado.lancamentos.find((l) => l.competencia === competencia),
@@ -112,6 +162,29 @@ export function LancarMes({ estado, onMudar }: {
           </p>
         )}
 
+        {comTicker.length > 0 && (
+          <div className={css.acoes} style={{ marginTop: 0, marginBottom: 14 }}>
+            <button type="button" className={css.botao} onClick={buscarPrecos} disabled={buscando}>
+              {buscando ? 'Consultando…' : `Buscar cotação (${comTicker.length})`}
+            </button>
+            <button
+              type="button" className={css.perigo}
+              onClick={() => { esquecerCotacoes(); setAvisos(['Cache de cotação limpo.']); }}
+            >
+              limpar cache
+            </button>
+            <span className={css.status}>
+              preenche só o preço da cota; as cotas continuam suas
+            </span>
+          </div>
+        )}
+
+        {avisos.length > 0 && (
+          <p className={css.statusErro} style={{ marginBottom: 12 }}>
+            {avisos.join(' · ')}
+          </p>
+        )}
+
         {estado.ativos.map((a) => {
           const r = rascunho[a.id] ?? vazio();
           const posicao = posicaoAtivo(a, {
@@ -124,6 +197,7 @@ export function LancarMes({ estado, onMudar }: {
                 <span className={css.blocoNome}>
                   {a.nome}
                   <span className={css.etiqueta}>{a.modo === 'cotizado' ? 'cotizado' : 'saldo'}</span>
+                  {a.ticker && <span className={css.etiqueta}>{a.ticker}</span>}
                 </span>
                 <span className={css.blocoPosicao}>{dinheiro(posicao)}</span>
               </div>

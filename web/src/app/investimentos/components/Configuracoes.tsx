@@ -8,7 +8,9 @@
  */
 import { useState } from 'react';
 import { CLASSES, slug } from '../lib/calc';
-import { dinheiro } from '../lib/formato';
+import { dinheiro, pct } from '../lib/formato';
+import { TICKER_VALIDO } from '../lib/cotacaoCache';
+import { buscarCdi } from '../lib/mercado';
 import type { Ativo, Classe, InvestState, Modo, Premissas } from '../lib/types';
 import css from '../investimentos.module.css';
 import { Cartao, Tabela } from './ui';
@@ -27,6 +29,7 @@ export function Configuracoes({ estado, onMudar }: {
   const [nome, setNome] = useState('');
   const [classe, setClasse] = useState<Classe>('renda_fixa');
   const [modo, setModo] = useState<Modo>('saldo');
+  const [ticker, setTicker] = useState('');
   const [erro, setErro] = useState<string | null>(null);
 
   function adicionar() {
@@ -40,9 +43,19 @@ export function Configuracoes({ estado, onMudar }: {
       return;
     }
 
+    const t = ticker.trim().toUpperCase();
+    if (t && !TICKER_VALIDO.test(t)) {
+      setErro(`"${t}" não parece um código da B3 — são 4 a 6 letras ou números.`);
+      return;
+    }
+
     setErro(null);
     setNome('');
-    onMudar({ ...estado, ativos: [...estado.ativos, { id, nome: limpo, classe, modo }] });
+    setTicker('');
+    onMudar({
+      ...estado,
+      ativos: [...estado.ativos, { id, nome: limpo, classe, modo, ...(t ? { ticker: t } : {}) }],
+    });
   }
 
   /**
@@ -105,6 +118,15 @@ export function Configuracoes({ estado, onMudar }: {
               {MODOS.map((m) => <option key={m.id} value={m.id}>{m.rotulo} — {m.ajuda}</option>)}
             </select>
           </label>
+          <label className={css.campo}>
+            <span>Código na B3 (opcional)</span>
+            <input
+              value={ticker}
+              onChange={(e) => setTicker(e.target.value.toUpperCase())}
+              placeholder="MXRF11"
+              maxLength={6}
+            />
+          </label>
         </div>
 
         <div className={css.acoes}>
@@ -119,7 +141,7 @@ export function Configuracoes({ estado, onMudar }: {
           <div style={{ marginTop: 16 }}>
             <Tabela>
               <thead>
-                <tr><th>Ativo</th><th>Classe</th><th>Modo</th><th>Identificador</th><th /></tr>
+                <tr><th>Ativo</th><th>Classe</th><th>Modo</th><th>B3</th><th>Identificador</th><th /></tr>
               </thead>
               <tbody>
                 {estado.ativos.map((a: Ativo) => (
@@ -127,6 +149,7 @@ export function Configuracoes({ estado, onMudar }: {
                     <td>{a.nome}</td>
                     <td>{nomeClasse(a.classe)}</td>
                     <td>{a.modo === 'cotizado' ? 'Cotizado' : 'Saldo'}</td>
+                    <td>{a.ticker ?? '—'}</td>
                     <td>{a.id}</td>
                     <td>
                       <button type="button" className={css.perigo} onClick={() => remover(a.id)}>
@@ -167,6 +190,13 @@ export function Configuracoes({ estado, onMudar }: {
                        onMudar={(v) => mudarPremissa('retornoAcoes', v)} />
         </div>
 
+        <BuscarCdi
+          onAplicar={(anual) => onMudar({
+            ...estado,
+            premissas: { ...estado.premissas, cdi2026: anual, cdi2027: anual },
+          })}
+        />
+
         <p className={css.nota}>
           A projeção da renda fixa usa <code>((1 + CDI)^(1/12) − 1) × (1 − IR)</code>; FII soma
           dividendo e valorização; ações e cripto usam o retorno de ações. Tudo recalcula na hora.
@@ -198,6 +228,54 @@ export function Configuracoes({ estado, onMudar }: {
         <NovoDecimo onAdicionar={mudarDecimo} />
       </Cartao>
     </>
+  );
+}
+
+/**
+ * Traz o CDI de hoje do Banco Central (série 12, pela rota `/api/mercado`).
+ *
+ * Preenche os dois anos com a taxa atual, mas NÃO aplica sozinho: projetar
+ * 2027 com o CDI de hoje é uma escolha, não um fato. O botão mostra o número
+ * e espera a confirmação.
+ */
+function BuscarCdi({ onAplicar }: { onAplicar: (anual: number) => void }) {
+  const [achado, setAchado] = useState<{ anual: number; data: string } | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+
+  async function buscar() {
+    setOcupado(true); setErro(null);
+    try {
+      const cdi = await buscarCdi();
+      setAchado({ anual: cdi.anual, data: cdi.data });
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não consegui consultar o CDI.');
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <div className={css.acoes}>
+      <button type="button" className={css.botao} onClick={buscar} disabled={ocupado}>
+        {ocupado ? 'Consultando…' : 'Buscar CDI atual'}
+      </button>
+
+      {achado && (
+        <>
+          <span className={css.status}>
+            CDI de {achado.data}: <strong className={css.mono}>{pct(achado.anual, 2)}</strong> a.a.
+          </span>
+          <button
+            type="button" className={css.botao}
+            onClick={() => { onAplicar(achado.anual); setAchado(null); }}
+          >
+            Usar nos dois anos
+          </button>
+        </>
+      )}
+      {erro && <span className={css.statusErro}>{erro}</span>}
+    </div>
   );
 }
 
