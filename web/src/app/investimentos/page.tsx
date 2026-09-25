@@ -1,115 +1,134 @@
 'use client';
 
 /**
- * Investimentos — shell das cinco abas.
+ * Investimentos — evolução do patrimônio e simulador de metas.
  *
- * Módulo isolado: não importa nada do código de faturas e ninguém de fora
- * importa daqui. A única ligação com o resto do app é a linha do menu em
- * `components/Nav.tsx`.
+ * A aba não guarda patrimônio: ele vem da Carteira, pelo Supabase. O que
+ * mora aqui é o que lá não existe — o carimbo mensal do total (porque
+ * `posicoes` não tem histórico) e as metas.
  *
- * O estado mora aqui e desce por props. Os componentes de aba não leem nem
- * escrevem storage, não chamam `fetch` e não fazem conta: recebem o estado
- * já derivado por `calc.ts` e devolvem um estado novo.
+ * O estado desce por props. Os componentes não leem storage, não chamam
+ * `fetch` e não fazem conta: recebem números prontos e devolvem intenção.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { derivar } from './lib/calc';
-import { buscarCdi, cdiDoCache } from './lib/mercado';
+import { competenciaDe, resumoEvolucao, serieEvolucao } from './lib/calc';
+import {
+  carregarCarteira, historicoDasContas, saldoAtualDasContas, valorDaBolsa,
+  type DadosCarteira,
+} from './lib/carteiraApi';
+import { buscarCdi, buscarCotacoes, cdiDoCache } from './lib/mercado';
 import type { CdiGuardado } from './lib/cotacaoCache';
-import { storage } from './lib/storage';
-import type { InvestState } from './lib/types';
+import { comCarimbo, storage } from './lib/storage';
+import type { InvestState, Meta } from './lib/types';
 import css from './investimentos.module.css';
-import { Configuracoes } from './components/Configuracoes';
-import { LancarMes } from './components/LancarMes';
-import { Projecao } from './components/Projecao';
-import { Rentabilidade } from './components/Rentabilidade';
-import { VisaoGeral } from './components/VisaoGeral';
+import { Evolucao } from './components/Evolucao';
+import { Metas } from './components/Metas';
 
-type Aba = 'visao' | 'lancar' | 'rentabilidade' | 'projecao' | 'config';
+type Aba = 'evolucao' | 'metas';
 
 const ABAS: { id: Aba; rotulo: string }[] = [
-  { id: 'visao', rotulo: 'Visão geral' },
-  { id: 'lancar', rotulo: 'Lançar mês' },
-  { id: 'rentabilidade', rotulo: 'Rentabilidade' },
-  { id: 'projecao', rotulo: 'Projeção' },
-  { id: 'config', rotulo: 'Ativos & premissas' },
+  { id: 'evolucao', rotulo: 'Evolução' },
+  { id: 'metas', rotulo: 'Metas' },
 ];
 
 export default function Investimentos() {
   const [estado, setEstado] = useState<InvestState | null>(null);
-  const [aba, setAba] = useState<Aba>('visao');
-  const [erro, setErro] = useState<string | null>(null);
-  const [salvoEm, setSalvoEm] = useState<string | null>(null);
+  const [carteira, setCarteira] = useState<DadosCarteira | null>(null);
+  const [precos, setPrecos] = useState<Map<string, number>>(new Map());
   const [cdi, setCdi] = useState<CdiGuardado | null>(null);
+  const [aba, setAba] = useState<Aba>('evolucao');
+  const [erro, setErro] = useState<string | null>(null);
+  const [carregando, setCarregando] = useState(true);
 
-  // Carrega depois da montagem, nunca durante o render: no servidor não
-  // existe `localStorage`, e ler no render faria o HTML do servidor divergir
-  // do primeiro render do cliente.
+  const salvar = useCallback((novo: InvestState) => {
+    setEstado(novo);
+    storage.save(novo).catch((e: Error) => setErro(e.message));
+  }, []);
+
+  // Estado local e dados da Carteira em paralelo: um não depende do outro, e
+  // a tela do simulador já abre enquanto o banco responde.
   useEffect(() => {
     let vivo = true;
+
     storage.load().then((s) => { if (vivo) setEstado(s); });
+
+    carregarCarteira()
+      .then((d) => { if (vivo) setCarteira(d); })
+      .catch((e: Error) => { if (vivo) setErro(`Não consegui ler a Carteira: ${e.message}`); })
+      .finally(() => { if (vivo) setCarregando(false); });
+
+    setCdi(cdiDoCache());
+    buscarCdi().then((c) => { if (vivo) setCdi(c); }).catch(() => { /* fica o cache */ });
+
     return () => { vivo = false; };
   }, []);
 
-  /**
-   * O CDI vem do Banco Central sozinho, sem ninguém digitar.
-   *
-   * Começa pelo que está no cache, para a primeira renderização já sair com a
-   * taxa de ontem em vez de piscar um número e trocar meio segundo depois.
-   * Depois busca; se a busca falhar (offline, sessão expirada, BCB fora do
-   * ar), o cache continua valendo e, na falta dele, a premissa digitada.
-   * Nunca é erro de tela: taxa velha é melhor que tela travada.
-   */
-  const atualizarCdi = useCallback(async (forcar = false) => {
-    try {
-      setCdi(await buscarCdi(forcar));
-    } catch {
-      /* fica com o cache ou com a premissa digitada */
-    }
-  }, []);
-
+  // Cotação só depois de saber quais tickers existem. O cache de 30 minutos
+  // é o que torna seguro buscar a cada abertura da tela.
   useEffect(() => {
-    setCdi(cdiDoCache());
-    atualizarCdi();
-  }, [atualizarCdi]);
+    if (!carteira) return;
+    const tickers = carteira.posicoes.filter((p) => p.quantidade > 0).map((p) => p.ticker);
+    if (tickers.length === 0) return;
 
-  /**
-   * Toda mudança passa por aqui.
-   *
-   * O estado da tela muda primeiro e a gravação vem depois: digitar não pode
-   * esperar disco. Se a gravação falhar, o erro aparece — silêncio faria a
-   * tela mostrar dado que some no próximo recarregamento.
-   */
-  const mudar = useCallback((novo: InvestState) => {
-    setEstado(novo);
-    setErro(null);
-    storage.save(novo)
-      .then(() => setSalvoEm(new Date().toLocaleTimeString('pt-BR')))
-      .catch((e: Error) => setErro(e.message));
-  }, []);
+    let vivo = true;
+    buscarCotacoes(tickers)
+      .then(({ cotacoes }) => {
+        if (vivo) setPrecos(new Map(cotacoes.map((c) => [c.ticker, c.preco])));
+      })
+      .catch(() => { /* sem cotação, as posições entram pelo custo */ });
+    return () => { vivo = false; };
+  }, [carteira]);
 
-  /**
-   * O estado que as abas enxergam, com o CDI de mercado por cima.
-   *
-   * As premissas guardadas continuam sendo a fonte quando o usuário desliga o
-   * automático ou quando a busca falha — o campo digitado vira a rede de
-   * segurança, não o caminho normal.
-   */
-  const estadoEfetivo = useMemo(() => {
-    if (!estado) return null;
-    const auto = estado.premissas.cdiAutomatico !== false;
-    if (!auto || !cdi) return estado;
-    return {
-      ...estado,
-      premissas: { ...estado.premissas, cdi2026: cdi.anual, cdi2027: cdi.anual },
-    };
-  }, [estado, cdi]);
-
-  const derivado = useMemo(
-    () => (estadoEfetivo ? derivar(estadoEfetivo) : null),
-    [estadoEfetivo],
+  const bolsa = useMemo(
+    () => valorDaBolsa(carteira?.posicoes ?? [], precos),
+    [carteira, precos],
   );
 
-  if (!estado || !estadoEfetivo || !derivado) {
+  const contas = useMemo(
+    () => (carteira
+      ? saldoAtualDasContas(carteira)
+      : { total: 0, porConta: [], semSaldo: [] }),
+    [carteira],
+  );
+
+  const patrimonioHoje = contas.total + bolsa.total;
+
+  /**
+   * Carimba o total do mês assim que a foto de hoje está completa.
+   *
+   * Só depois de ter as cotações — carimbar antes gravaria a bolsa pelo custo
+   * e deixaria um ponto errado no histórico para sempre. E só quando há algo
+   * a registrar: zero patrimônio não é fato, é tela ainda carregando.
+   *
+   * Regravar no mesmo mês substitui o ponto, então visitar a tela dez vezes
+   * em setembro não gera dez pontos.
+   */
+  useEffect(() => {
+    if (!estado || !carteira || patrimonioHoje <= 0) return;
+
+    const competencia = competenciaDe();
+    const atual = estado.historico.find((p) => p.competencia === competencia);
+    const igual = atual
+      && Math.abs(atual.total - patrimonioHoje) < 0.01
+      && Math.abs(atual.bolsa - bolsa.total) < 0.01;
+    if (igual) return;
+
+    salvar(comCarimbo(estado, {
+      competencia,
+      reservas: contas.total,
+      bolsa: bolsa.total,
+      total: patrimonioHoje,
+    }));
+  }, [estado, carteira, contas.total, bolsa.total, patrimonioHoje, salvar]);
+
+  const serie = useMemo(() => serieEvolucao(
+    carteira ? historicoDasContas(carteira) : [],
+    estado?.historico ?? [],
+  ), [carteira, estado]);
+
+  const resumo = useMemo(() => resumoEvolucao(serie), [serie]);
+
+  if (!estado || carregando) {
     return (
       <div className={css.raiz}>
         <p className={css.status}>Carregando…</p>
@@ -121,7 +140,7 @@ export default function Investimentos() {
     <div className={css.raiz}>
       <header className={css.cabecalho}>
         <h1>Investimentos</h1>
-        <p>Lançamento manual, uma vez por mês. Rendimento medido, projeção separada.</p>
+        <p>Como o patrimônio evoluiu, e quanto falta para onde você quer chegar.</p>
       </header>
 
       <div className={css.abas} role="tablist" aria-label="Seções de investimentos">
@@ -137,31 +156,30 @@ export default function Investimentos() {
 
       {erro && <p className={css.statusErro} role="alert">{erro}</p>}
 
-      {aba === 'visao' && (
-        <VisaoGeral estado={estadoEfetivo} posicoes={derivado.posicoes} geral={derivado.geral} />
-      )}
-      {aba === 'lancar' && <LancarMes estado={estado} onMudar={mudar} />}
-      {aba === 'rentabilidade' && (
-        <Rentabilidade
-          estado={estadoEfetivo} posicoes={derivado.posicoes}
-          rendimentos={derivado.rendimentos} resumo={derivado.rentabilidade}
+      {aba === 'evolucao' && (
+        <Evolucao
+          serie={serie} resumo={resumo} bolsa={bolsa}
+          reservas={contas.porConta}
+          contasSemSaldo={contas.semSaldo}
+          carimbadoEm={serie.length && serie[serie.length - 1].completo ? competenciaDe() : null}
         />
       )}
-      {aba === 'projecao' && (
-        <Projecao estado={estadoEfetivo} posicoes={derivado.posicoes} geral={derivado.geral} />
-      )}
-      {aba === 'config' && (
-        <Configuracoes
-          estado={estado} onMudar={mudar}
-          cdi={cdi} onAtualizarCdi={() => atualizarCdi(true)}
+
+      {aba === 'metas' && (
+        <Metas
+          patrimonio={patrimonioHoje}
+          metas={estado.metas}
+          rendimentoAnual={estado.rendimentoAnual}
+          cdiAnual={cdi?.anual ?? null}
+          onMudarMetas={(metas: Meta[]) => salvar({ ...estado, metas })}
+          onMudarRendimento={(rendimentoAnual) => salvar({ ...estado, rendimentoAnual })}
         />
       )}
 
       <p className={css.nota}>
-        Os dados ficam <strong>neste navegador</strong> (localStorage), não no banco do app.
-        Limpar os dados do site apaga tudo.
+        Patrimônio, reservas e posições vêm da aba <strong>Carteira</strong>.
+        Metas e o histórico mensal do total ficam neste navegador.
         {cdi && ` · CDI de ${cdi.data} (Banco Central)`}
-        {salvoEm && ` · salvo às ${salvoEm}`}
       </p>
     </div>
   );

@@ -576,3 +576,36 @@
   border-radius: 50%;
   margin-right: 6px;
 }
+
+/* ── metas ────────────────────────────────────────────────────────────── */
+
+.tituloMeta {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--inv-texto);
+  cursor: pointer;
+  padding: 0;
+  flex: 1 1 auto;
+  text-align: left;
+  letter-spacing: -0.01em;
+}
+.tituloMeta:hover { color: var(--inv-acento); }
+.tituloMeta::after {
+  content: ' ✎';
+  font-size: 0.72rem;
+  color: var(--inv-suave-claro);
+}
+
+.respostaBoa {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 12px 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--inv-pos);
+}
