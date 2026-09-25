@@ -10,8 +10,9 @@
  */
 import assert from 'node:assert/strict';
 import {
-  competenciaDe, proximaCompetencia, resumoEvolucao, rotuloCompetencia,
-  sequenciaCompetencias, serieEvolucao,
+  competenciaAnterior, competenciaDe, competenciaSugerida, hojeISO, mesEncerrado,
+  mesesEmAberto, proximaCompetencia, resumoEvolucao, rotuloCompetencia,
+  sequenciaCompetencias, serieEvolucao, ultimoDiaDoMes,
 } from './calc';
 import { comCarimbo, estadoVazio, normalizar } from './storage';
 import type { PontoPatrimonio } from './types';
@@ -45,6 +46,90 @@ teste('rótulo curto para eixo', () => {
 teste('competência de uma data, sem passar por fuso', () => {
   assert.equal(competenciaDe(new Date(2026, 0, 31)), '2026-01');
   assert.equal(competenciaDe(new Date(2026, 11, 1)), '2026-12');
+});
+
+// ── fechamento de mês ──────────────────────────────────────────────────────
+
+teste('último dia do mês resolve 30, 31 e fevereiro', () => {
+  assert.equal(ultimoDiaDoMes('2026-01'), '2026-01-31');
+  assert.equal(ultimoDiaDoMes('2026-04'), '2026-04-30');
+  assert.equal(ultimoDiaDoMes('2026-12'), '2026-12-31');
+});
+
+teste('fevereiro bissexto não precisa de tabela', () => {
+  assert.equal(ultimoDiaDoMes('2026-02'), '2026-02-28');
+  assert.equal(ultimoDiaDoMes('2028-02'), '2028-02-29', '2028 é bissexto');
+  assert.equal(ultimoDiaDoMes('2100-02'), '2100-02-28', '2100 não é, apesar de divisível por 4');
+});
+
+teste('a data não passa por UTC', () => {
+  // `toISOString()` em fuso negativo devolveria o dia anterior — e o último
+  // dia de janeiro viraria 30 de janeiro.
+  assert.equal(hojeISO(new Date(2026, 0, 31)), '2026-01-31');
+  assert.equal(hojeISO(new Date(2026, 11, 1)), '2026-12-01');
+});
+
+teste('competência anterior vira o ano', () => {
+  assert.equal(competenciaAnterior('2026-01'), '2025-12');
+  assert.equal(competenciaAnterior('2026-10'), '2026-09');
+});
+
+teste('mês só está encerrado depois de virar', () => {
+  assert.equal(mesEncerrado('2026-09', new Date(2026, 8, 30)), false, 'dia 30 de setembro ainda é setembro');
+  assert.equal(mesEncerrado('2026-09', new Date(2026, 9, 1)), true, '1º de outubro encerra setembro');
+});
+
+teste('sugere fechar o mês que acabou, não o que está correndo', () => {
+  // Em 25 de setembro, o que interessa fechar é agosto.
+  assert.equal(competenciaSugerida([], new Date(2026, 8, 25)), '2026-08');
+});
+
+teste('fechado o mês passado, sobra o corrente', () => {
+  const s = competenciaSugerida([{ competencia: '2026-08' }], new Date(2026, 8, 25));
+  assert.equal(s, '2026-09');
+});
+
+teste('nada pendente devolve null, não um mês repetido', () => {
+  const s = competenciaSugerida(
+    [{ competencia: '2026-08' }, { competencia: '2026-09' }],
+    new Date(2026, 8, 25),
+  );
+  assert.equal(s, null);
+});
+
+teste('buraco no meio da série é listado', () => {
+  // Setembro corrente; fechou junho e agosto. Julho está faltando e vira
+  // degrau no gráfico se ninguém preencher.
+  const faltando = mesesEmAberto(
+    [{ competencia: '2026-06' }, { competencia: '2026-08' }],
+    new Date(2026, 8, 25),
+  );
+  assert.deepEqual(faltando, ['2026-07']);
+});
+
+teste('o mês corrente não conta como buraco — ainda não acabou', () => {
+  const faltando = mesesEmAberto([{ competencia: '2026-08' }], new Date(2026, 8, 25));
+  assert.deepEqual(faltando, []);
+});
+
+teste('série sem buraco não acusa nada', () => {
+  const faltando = mesesEmAberto(
+    [{ competencia: '2026-06' }, { competencia: '2026-07' }, { competencia: '2026-08' }],
+    new Date(2026, 8, 25),
+  );
+  assert.deepEqual(faltando, []);
+});
+
+teste('sem fechamento nenhum não existe buraco', () => {
+  assert.deepEqual(mesesEmAberto([], new Date(2026, 8, 25)), []);
+});
+
+teste('buraco atravessa a virada do ano', () => {
+  const faltando = mesesEmAberto(
+    [{ competencia: '2025-11' }, { competencia: '2026-02' }],
+    new Date(2026, 2, 10),
+  );
+  assert.deepEqual(faltando, ['2025-12', '2026-01']);
 });
 
 // ── série de evolução ──────────────────────────────────────────────────────

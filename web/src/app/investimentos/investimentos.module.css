@@ -609,3 +609,22 @@
   font-weight: 600;
   color: var(--inv-pos);
 }
+
+/* Aviso de migração pendente: informa sem parecer erro de aplicação. */
+.avisoMigracao {
+  background: #fdf8ec;
+  border: 1px solid #f2ddb0;
+  color: #8a6318;
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+.avisoMigracao code {
+  background: rgb(255 255 255 / 0.7);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: var(--inv-mono);
+  font-size: 0.94em;
+}

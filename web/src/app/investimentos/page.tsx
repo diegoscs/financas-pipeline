@@ -16,18 +16,24 @@ import {
   carregarCarteira, historicoDasContas, saldoAtualDasContas, valorDaBolsa,
   type DadosCarteira,
 } from './lib/carteiraApi';
+import {
+  MigracaoPendente, listarFechamentos, removerFechamento, salvarFechamento,
+  type FechamentoMes,
+} from './lib/historicoApi';
 import { buscarCdi, buscarCotacoes, cdiDoCache } from './lib/mercado';
 import type { CdiGuardado } from './lib/cotacaoCache';
-import { comCarimbo, storage } from './lib/storage';
+import { storage } from './lib/storage';
 import type { InvestState, Meta } from './lib/types';
 import css from './investimentos.module.css';
 import { Evolucao } from './components/Evolucao';
+import { FecharMes } from './components/FecharMes';
 import { Metas } from './components/Metas';
 
-type Aba = 'evolucao' | 'metas';
+type Aba = 'evolucao' | 'fechar' | 'metas';
 
 const ABAS: { id: Aba; rotulo: string }[] = [
   { id: 'evolucao', rotulo: 'Evolução' },
+  { id: 'fechar', rotulo: 'Fechar o mês' },
   { id: 'metas', rotulo: 'Metas' },
 ];
 
@@ -39,6 +45,20 @@ export default function Investimentos() {
   const [aba, setAba] = useState<Aba>('evolucao');
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [fechamentos, setFechamentos] = useState<FechamentoMes[]>([]);
+  const [gravando, setGravando] = useState(false);
+  /** A migração 16 ainda não rodou: cai no histórico local e avisa. */
+  const [semTabela, setSemTabela] = useState(false);
+
+  const recarregarFechamentos = useCallback(async () => {
+    try {
+      setFechamentos(await listarFechamentos());
+      setSemTabela(false);
+    } catch (e) {
+      if (e instanceof MigracaoPendente) setSemTabela(true);
+      else setErro((e as Error).message);
+    }
+  }, []);
 
   const salvar = useCallback((novo: InvestState) => {
     setEstado(novo);
@@ -57,11 +77,13 @@ export default function Investimentos() {
       .catch((e: Error) => { if (vivo) setErro(`Não consegui ler a Carteira: ${e.message}`); })
       .finally(() => { if (vivo) setCarregando(false); });
 
+    recarregarFechamentos();
+
     setCdi(cdiDoCache());
     buscarCdi().then((c) => { if (vivo) setCdi(c); }).catch(() => { /* fica o cache */ });
 
     return () => { vivo = false; };
-  }, []);
+  }, [recarregarFechamentos]);
 
   // Cotação só depois de saber quais tickers existem. O cache de 30 minutos
   // é o que torna seguro buscar a cada abertura da tela.
@@ -94,37 +116,53 @@ export default function Investimentos() {
   const patrimonioHoje = contas.total + bolsa.total;
 
   /**
-   * Carimba o total do mês assim que a foto de hoje está completa.
+   * Fechar o mês é ação deliberada, não efeito colateral de abrir a tela.
    *
-   * Só depois de ter as cotações — carimbar antes gravaria a bolsa pelo custo
-   * e deixaria um ponto errado no histórico para sempre. E só quando há algo
-   * a registrar: zero patrimônio não é fato, é tela ainda carregando.
-   *
-   * Regravar no mesmo mês substitui o ponto, então visitar a tela dez vezes
-   * em setembro não gera dez pontos.
+   * A versão anterior carimbava sozinha o total de hoje a cada visita, o que
+   * grava "o patrimônio do dia 12" com o rótulo do mês inteiro. Agora quem
+   * decide é o botão em `FecharMes`.
    */
-  useEffect(() => {
-    if (!estado || !carteira || patrimonioHoje <= 0) return;
+  const gravarFechamento = useCallback(async (f: FechamentoMes) => {
+    setGravando(true);
+    setErro(null);
+    try {
+      await salvarFechamento(f);
+      await recarregarFechamentos();
+    } catch (e) {
+      setErro((e as Error).message);
+    } finally {
+      setGravando(false);
+    }
+  }, [recarregarFechamentos]);
 
-    const competencia = competenciaDe();
-    const atual = estado.historico.find((p) => p.competencia === competencia);
-    const igual = atual
-      && Math.abs(atual.total - patrimonioHoje) < 0.01
-      && Math.abs(atual.bolsa - bolsa.total) < 0.01;
-    if (igual) return;
+  const apagarFechamento = useCallback(async (competencia: string) => {
+    setGravando(true);
+    setErro(null);
+    try {
+      await removerFechamento(competencia);
+      await recarregarFechamentos();
+    } catch (e) {
+      setErro((e as Error).message);
+    } finally {
+      setGravando(false);
+    }
+  }, [recarregarFechamentos]);
 
-    salvar(comCarimbo(estado, {
-      competencia,
-      reservas: contas.total,
-      bolsa: bolsa.total,
-      total: patrimonioHoje,
-    }));
-  }, [estado, carteira, contas.total, bolsa.total, patrimonioHoje, salvar]);
+  /**
+   * Enquanto a migração 16 não roda, vale o histórico que ficou no navegador.
+   *
+   * Sem isso a aba perderia a série inteira entre o deploy e o SQL rodar — e
+   * "sumiu tudo" é pior que "ainda não está no banco".
+   */
+  const historicoEmUso = useMemo(
+    () => (semTabela ? (estado?.historico ?? []) : fechamentos),
+    [semTabela, estado?.historico, fechamentos],
+  );
 
   const serie = useMemo(() => serieEvolucao(
     carteira ? historicoDasContas(carteira) : [],
-    estado?.historico ?? [],
-  ), [carteira, estado]);
+    historicoEmUso,
+  ), [carteira, historicoEmUso]);
 
   const resumo = useMemo(() => resumoEvolucao(serie), [serie]);
 
@@ -156,12 +194,31 @@ export default function Investimentos() {
 
       {erro && <p className={css.statusErro} role="alert">{erro}</p>}
 
+      {semTabela && (
+        <p className={css.avisoMigracao}>
+          O histórico ainda está só neste navegador. Para guardá-lo no banco e abrir de
+          qualquer aparelho, rode <code>sql/16_investimentos_historico.sql</code> no SQL
+          Editor do Supabase. Até lá, gravar um fechamento vai dar erro.
+        </p>
+      )}
+
       {aba === 'evolucao' && (
         <Evolucao
           serie={serie} resumo={resumo} bolsa={bolsa}
           reservas={contas.porConta}
           contasSemSaldo={contas.semSaldo}
           carimbadoEm={serie.length && serie[serie.length - 1].completo ? competenciaDe() : null}
+        />
+      )}
+
+      {aba === 'fechar' && (
+        <FecharMes
+          fechamentos={fechamentos}
+          sugestaoReservas={contas.total}
+          sugestaoBolsa={bolsa.total}
+          ocupado={gravando}
+          onSalvar={gravarFechamento}
+          onRemover={apagarFechamento}
         />
       )}
 

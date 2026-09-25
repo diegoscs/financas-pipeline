@@ -44,6 +44,87 @@ export function competenciaDe(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
+export function competenciaAnterior(comp: string): string {
+  const [ano, mes] = comp.split('-').map(Number);
+  return mes === 1 ? `${ano - 1}-12` : `${ano}-${String(mes - 1).padStart(2, '0')}`;
+}
+
+/**
+ * Último dia do mês, em ISO.
+ *
+ * `new Date(ano, mes, 0)` devolve o último dia do mês anterior ao índice —
+ * e como o mês do JS é base zero, passar o número humano do mês dá o último
+ * dia dele. Resolve fevereiro e ano bissexto sem tabela.
+ *
+ * O Date é construído em horário local e formatado campo a campo, nunca por
+ * `toISOString()`: aquele converte para UTC e, em fuso negativo, devolveria
+ * o dia anterior.
+ */
+export function ultimoDiaDoMes(comp: string): string {
+  const [ano, mes] = comp.split('-').map(Number);
+  const d = new Date(ano, mes, 0);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Hoje em ISO, sem passar por UTC — mesma armadilha de fuso. */
+export function hojeISO(d = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** O mês acabou? Só então o fechamento é definitivo. */
+export function mesEncerrado(comp: string, hoje = new Date()): boolean {
+  return competenciaDe(hoje) > comp;
+}
+
+/**
+ * Qual mês oferecer para fechar.
+ *
+ * A regra segue o hábito: fecha-se o mês que acabou. Enquanto setembro corre,
+ * o que interessa fechar é agosto — se ainda não foi. Fechado agosto, sobra
+ * setembro, que só vira definitivo no dia 1º de outubro.
+ *
+ * Devolve `null` quando não há nada pendente: tanto o mês passado quanto o
+ * corrente já têm fechamento.
+ */
+export function competenciaSugerida(
+  fechados: { competencia: string }[], hoje = new Date(),
+): string | null {
+  const jaFechados = new Set(fechados.map((f) => f.competencia));
+  const atual = competenciaDe(hoje);
+  const anterior = competenciaAnterior(atual);
+
+  if (!jaFechados.has(anterior)) return anterior;
+  if (!jaFechados.has(atual)) return atual;
+  return null;
+}
+
+/**
+ * Meses sem fechamento entre o primeiro registro e o mês passado.
+ *
+ * Buraco no meio da série vira degrau no gráfico, e degrau se lê como queda
+ * de patrimônio. Listar os buracos é o que permite a tela pedir para
+ * preenchê-los em vez de desenhar uma mentira.
+ *
+ * O mês corrente fica de fora: ainda não acabou, então não está em falta.
+ */
+export function mesesEmAberto(
+  fechados: { competencia: string }[], hoje = new Date(),
+): string[] {
+  if (fechados.length === 0) return [];
+
+  const jaFechados = new Set(fechados.map((f) => f.competencia));
+  const primeiro = [...jaFechados].sort()[0];
+  const limite = competenciaDe(hoje);
+
+  const faltando: string[] = [];
+  let c = primeiro;
+  while (c < limite) {
+    if (!jaFechados.has(c)) faltando.push(c);
+    c = proximaCompetencia(c);
+  }
+  return faltando;
+}
+
 // ── série de evolução ──────────────────────────────────────────────────────
 
 export interface PontoEvolucao extends PontoPatrimonio {
