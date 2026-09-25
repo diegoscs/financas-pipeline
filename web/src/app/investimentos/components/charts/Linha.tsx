@@ -37,7 +37,12 @@ export function Linha({ dados, series, formatar, formatarEixo, alto, dominio }: 
             s.area ? (
               <Area
                 key={s.chave} type="monotone" dataKey={s.chave} name={s.nome}
-                stroke={s.cor} fill={s.cor} fillOpacity={0.12}
+                stroke={s.cor} fill={s.cor}
+                // Área empilhada é uma fatia do total e precisa de preenchimento
+                // sólido o bastante para se distinguir da vizinha; área solta é
+                // só sombra sob uma linha.
+                fillOpacity={s.empilhar ? 0.55 : 0.12}
+                stackId={s.empilhar ? 'pilha' : undefined}
                 strokeWidth={s.grossura ?? 2.5} dot={false}
                 // `connectNulls` fica falso: buraco na série é mês sem
                 // lançamento, e ligar os pontos inventaria patrimônio.

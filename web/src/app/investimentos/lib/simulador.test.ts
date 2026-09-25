@@ -99,6 +99,31 @@ teste('a série respeita o teto de 100 anos', () => {
   assert.equal(s.length, MAX_MESES + 1);
 });
 
+teste('EMPILHÁVEL: aportado + juros dá exatamente o total', () => {
+  // O gráfico "de onde vem" empilha as duas faixas e a altura somada tem que
+  // ser a mesma linha da visão "quanto chega". Se as definições divergirem,
+  // o gráfico mostra um total que não existe — e sem erro nenhum.
+  for (const taxa of [0, I_12AA, taxaMensalDeAnual(30)]) {
+    const s = serieProjetada({ inicial: 5000, aporte: 1000, taxaMensal: taxa }, 60);
+    for (const p of s) perto(p.aportado + p.juros, p.total, 1e-9);
+  }
+});
+
+teste('o juro acumulado passa o aporte em prazo longo', () => {
+  // É o que a visão de composição existe para mostrar. A 12% ao ano, com
+  // aporte de 1.000 sobre 5.000 iniciais, a virada existe dentro de 100 anos.
+  const s = serieProjetada({ inicial: 5000, aporte: 1000, taxaMensal: I_12AA }, 600);
+  const virada = s.find((p) => p.juros > p.aportado);
+  assert.ok(virada, 'deveria haver um mês em que o dinheiro trabalha mais que você');
+  assert.ok(virada!.mes > 12, `virada cedo demais (${virada!.mes}) sugere erro de conta`);
+});
+
+teste('sem juros, a faixa de rendimento é sempre zero', () => {
+  const s = serieProjetada({ inicial: 5000, aporte: 1000, taxaMensal: 0 }, 60);
+  for (const p of s) perto(p.juros, 0, 1e-9);
+  assert.equal(s.find((p) => p.juros > p.aportado), undefined, 'sem juro não há virada');
+});
+
 // ── quando chego ───────────────────────────────────────────────────────────
 
 teste('meta já batida é zero mês, não erro', () => {

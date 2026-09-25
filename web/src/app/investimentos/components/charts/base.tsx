@@ -33,6 +33,15 @@ export interface Serie {
   grossura?: number;
   /** área sob a linha; só o realizado usa */
   area?: boolean;
+  /**
+   * Empilha esta área sobre as outras empilhadas.
+   *
+   * Só faz sentido com `area`. Serve para decompor um total em partes — o
+   * aporte embaixo, o juro em cima — em que a altura somada é o total e cada
+   * faixa é uma parcela dele. Séries de referência, como a linha da meta,
+   * ficam de fora da pilha ou seriam somadas ao que deveriam apenas cruzar.
+   */
+  empilhar?: boolean;
 }
 
 interface ItemTooltip {

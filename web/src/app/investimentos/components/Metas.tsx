@@ -21,7 +21,16 @@ import type { Meta } from '../lib/types';
 import css from '../investimentos.module.css';
 import { Linha } from './charts/Linha';
 import { CORES } from './charts/base';
-import { Cartao, Kpi, Kpis, Vazio } from './ui';
+import { Cartao, Kpi, Kpis, Seletor, Vazio } from './ui';
+
+/**
+ * Duas leituras do mesmo cenário.
+ *
+ * `total` responde "chego?" — a curva contra a meta. `composicao` responde
+ * "de onde vem?" — quanto saiu do bolso e quanto o dinheiro produziu. Juntar
+ * as duas num gráfico só daria cinco séries disputando o mesmo eixo.
+ */
+type Visao = 'total' | 'composicao';
 
 /** Atalhos de prazo: quem pensa em meta pensa em anos, não em 36 meses. */
 const PRAZOS = [
@@ -142,6 +151,7 @@ function CartaoMeta({ meta, patrimonio, taxaMensal, onMudar, onRemover }: {
   onRemover: () => void;
 }) {
   const [editandoNome, setEditandoNome] = useState(false);
+  const [visao, setVisao] = useState<Visao>('total');
 
   const r = analisarMeta({
     inicial: patrimonio,
@@ -171,10 +181,18 @@ function CartaoMeta({ meta, patrimonio, taxaMensal, onMudar, onRemover }: {
     atual: p.total,
     necessario: comNecessario ? comNecessario[i]?.total ?? null : null,
     meta: meta.valor,
+    // Decomposição do mesmo total: o que saiu do bolso e o que o dinheiro
+    // produziu. Empilhadas, a altura somada é a linha `atual`.
+    aportado: p.aportado,
+    juros: p.juros,
   }));
 
   const falta = r.ajusteNoAporte !== null && r.ajusteNoAporte > 0.005;
   const sobra = r.ajusteNoAporte !== null && r.ajusteNoAporte < -0.005;
+
+  /** Mês em que o juro acumulado passa o que foi aportado. */
+  const viradaJuros = comAtual.find((p) => p.juros > p.aportado);
+  const ultimo = comAtual[comAtual.length - 1];
 
   return (
     <Cartao>
@@ -269,21 +287,59 @@ function CartaoMeta({ meta, patrimonio, taxaMensal, onMudar, onRemover }: {
         </Kpis>
       )}
 
-      <Linha
-        dados={dados} formatar={dinheiro} formatarEixo={eixoDinheiro}
-        series={[
-          { chave: 'atual', nome: `Aportando ${dinheiro(meta.aporte)}`, cor: CORES[0], area: true },
-          ...(comNecessario && falta
-            ? [{ chave: 'necessario', nome: 'Aporte necessário', cor: CORES[2], tracejada: true }]
-            : []),
-          { chave: 'meta', nome: 'Meta', cor: CORES[4], tracejada: true, grossura: 1.5 },
+      <Seletor<Visao>
+        valor={visao} onEscolher={setVisao}
+        opcoes={[
+          { id: 'total', rotulo: 'Quanto chega' },
+          { id: 'composicao', rotulo: 'De onde vem' },
         ]}
       />
 
+      {visao === 'total' ? (
+        <Linha
+          dados={dados} formatar={dinheiro} formatarEixo={eixoDinheiro}
+          series={[
+            { chave: 'atual', nome: `Aportando ${dinheiro(meta.aporte)}`, cor: CORES[0], area: true },
+            ...(comNecessario && falta
+              ? [{ chave: 'necessario', nome: 'Aporte necessário', cor: CORES[2], tracejada: true }]
+              : []),
+            { chave: 'meta', nome: 'Meta', cor: CORES[4], tracejada: true, grossura: 1.5 },
+          ]}
+        />
+      ) : (
+        <Linha
+          dados={dados} formatar={dinheiro} formatarEixo={eixoDinheiro}
+          series={[
+            // A pilha na ordem em que se lê: o seu dinheiro embaixo, o que
+            // ele produziu por cima. A meta fica fora da pilha — ela cruza o
+            // total, não faz parte dele.
+            { chave: 'aportado', nome: 'Saiu do seu bolso', cor: CORES[3], area: true, empilhar: true },
+            { chave: 'juros', nome: 'Rendeu sozinho', cor: CORES[4], area: true, empilhar: true },
+            { chave: 'meta', nome: 'Meta', cor: CORES[5], tracejada: true, grossura: 1.5 },
+          ]}
+        />
+      )}
+
+      {visao === 'composicao' && (
+        <p className={css.previa}>
+          {viradaJuros
+            ? <>
+                A partir de <strong>{prazoLegivel(viradaJuros.mes)}</strong> o juro acumulado passa
+                tudo o que você aportou — daí em diante o dinheiro trabalha mais que você.
+              </>
+            : <>
+                No fim do período, <strong>{dinheiro(ultimo.juros)}</strong> vieram de rendimento
+                contra <strong>{dinheiro(ultimo.aportado)}</strong> do seu bolso. Prazos mais
+                longos invertem essa proporção.
+              </>}
+        </p>
+      )}
+
       <p className={css.nota}>
         Parte de <strong>{dinheiro(patrimonio)}</strong>, o patrimônio que a Carteira mostra hoje.
-        O aporte entra no fim de cada mês — convenção prudente: dinheiro que entra no dia 30 não
-        rendeu aquele mês.
+        Juro composto: cada aporte rende a partir do mês seguinte ao que entra, e o rendimento
+        rende junto no mês seguinte. O aporte entra no fim de cada mês — dinheiro que cai no dia
+        30 não rendeu aquele mês.
       </p>
     </Cartao>
   );
